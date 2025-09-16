@@ -1,0 +1,72 @@
+body {
+  background-color: #f8f9fa;
+  color: #212529;
+  transition: background-color 0.3s, color 0.3s;
+}
+.page {
+  display: none;
+}
+#login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+.menu-card {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.menu-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+.review-summary-card {
+  background-color: #e9ecef;
+}
+.toast-container {
+  z-index: 1100; /* Ensure toast is on top */
+}
+
+/* Dark Theme Styles */
+body.dark-mode {
+  background-color: #212529;
+  color: #dee2e6;
+}
+.dark-mode .card,
+.dark-mode .list-group-item,
+.dark-mode .accordion-item,
+.dark-mode .modal-content,
+.dark-mode .table-striped > tbody > tr:nth-of-type(odd) > * {
+  background-color: #343a40;
+  color: #dee2e6;
+  border-color: #495057;
+}
+.dark-mode .list-group-item.list-group-item-dark {
+  background-color: #495057;
+}
+.dark-mode .table {
+  color: #dee2e6;
+}
+.dark-mode .form-control,
+.dark-mode .form-select {
+  background-color: #495057;
+  color: #dee2e6;
+  border-color: #6c757d;
+}
+.dark-mode .form-control::placeholder {
+  color: #adb5bd;
+}
+.dark-mode .text-muted {
+  color: #adb5bd !important;
+}
+.dark-mode .btn-light {
+  background-color: #495057;
+  border-color: #6c757d;
+  color: #f8f9fa;
+}
+.dark-mode .review-summary-card {
+  background-color: #343a40;
+}
+.dark-mode .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
