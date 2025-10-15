@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Aplikasi Pencatatan Keuangan</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+      body {
+        background-color: #f8f9fa;
+        color: #212529;
+      }
+      .page { display: none; }
+      #login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+      .menu-card { cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+      .menu-card:hover { transform: translateY(-5px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
+      .toast-container { z-index: 1150; }
+      input[type=number]::-webkit-inner-spin-button, 
+      input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+      input[type=number] { -moz-appearance: textfield; }
+      .sticky-footer { position: sticky; bottom: 0; background-color: white; z-index: 1000; }
+      .btn-action { width: 38px; }
+      .password-cell .form-control { border: none; background: transparent; padding: 0; }
+      /* Invoice Styles */
+      .invoice-box {
+        max-width: 800px;
+        margin: auto;
+        padding: 30px;
+        border: 1px solid #eee;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
+        font-size: 16px;
+        line-height: 24px;
+        font-family: 'Helvetica Neue', 'Helvetica', Helvetica, Arial, sans-serif;
+        color: #555;
+      }
+      .invoice-box table { width: 100%; line-height: inherit; text-align: left; }
+      .invoice-box table td { padding: 5px; vertical-align: top; }
+      .invoice-box table tr.top table td { padding-bottom: 20px; }
+      .invoice-box table tr.information table td { padding-bottom: 40px; }
+      .invoice-box table tr.heading td { background: #eee; border-bottom: 1px solid #ddd; font-weight: bold; }
+      .invoice-box table tr.details td { padding-bottom: 20px; }
+      .invoice-box table tr.item td { border-bottom: 1px solid #eee; }
+      .invoice-box table tr.item.last td { border-bottom: none; }
+      .invoice-box table tr.total td:nth-child(2) { border-top: 2px solid #eee; font-weight: bold; }
+    </style>
+  </head>
+  <body>
+    <!-- Container Notifikasi Toast -->
+    <div class="toast-container position-fixed top-0 end-0 p-3">
+      <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+          <i id="toast-icon" class="bi me-2"></i>
+          <strong class="me-auto" id="toast-title"></strong>
+          <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body" id="toast-body"></div>
+      </div>
+    </div>
+
+    <!-- HALAMAN LOGIN -->
+    <div id="login-page" class="page">
+      <div class="container">
+        <div class="row justify-content-center">
+          <div class="col-md-5 col-lg-4">
+            <div class="card shadow-sm border-0">
+              <div class="card-body p-4">
+                <div class="text-center mb-4">
+                  <i class="bi bi-shop-window" style="font-size: 3rem; color: #0d6efd"></i>
+                  <h3 class="card-title mt-2">Selamat Datang</h3>
+                  <p class="text-muted">Masuk untuk melanjutkan</p>
+                </div>
+                <form id="login-form">
+                  <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" class="form-control" id="username" placeholder="ketik 'owner', username admin, atau supplier" required />
+                  </div>
+                  <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <div class="input-group">
+                      <input type="password" class="form-control" id="password" required />
+                      <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility(this, 'password')"><i class="bi bi-eye-slash"></i></button>
+                    </div>
+                  </div>
+                  <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary">Login</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- SEMUA KONTEN OWNER -->
+    <!-- =================================================================== -->
+    <main id="owner-pages">
+      <div id="owner-dashboard" class="page container py-4">
+        <header class="d-flex justify-content-between align-items-center pb-3 mb-4 border-bottom">
+          <div>
+            <h4 class="mb-0">Dashboard, <span id="owner-name">Owner</span></h4>
+            <p class="text-muted mb-0 small" id="current-date-owner"></p>
+          </div>
+          <button class="btn btn-outline-danger btn-sm" onclick="handleLogout()"><i class="bi bi-box-arrow-right"></i> Logout</button>
+        </header>
+        <div class="row g-3 mb-4">
+          <div class="col-md-6">
+            <div class="card bg-warning text-dark shadow-sm menu-card" onclick="showPage('owner-laporan-biaya-page')">
+              <div class="card-body">
+                <h6 class="card-title"><i class="bi bi-truck"></i> Biaya Supplier (Bulan Ini)</h6>
+                <h4 class="display-6" id="owner-biaya-card">Rp 0</h4>
+                <small>Total pembayaran terkonfirmasi</small>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card text-bg-success shadow-sm menu-card" onclick="showPage('owner-laporan-pendapatan-page')">
+              <div class="card-body">
+                <h6 class="card-title"><i class="bi bi-cash-coin"></i> Pendapatan (Bulan Ini)</h6>
+                <h4 class="display-6" id="owner-pendapatan-card">Rp 0</h4>
+                <small>Klik untuk detail harian</small>
+              </div>
+            </div>
+          </div>
+        </div>
+        <h5 class="mb-3">Menu Data & Pengelolaan</h5>
+        <div class="row g-3">
+          <div class="col-6 col-md-3"><div class="card menu-card h-100" onclick="showPage('owner-data-admin-page')"><div class="card-body text-center p-3"><i class="bi bi-person-badge-fill text-info" style="font-size: 2rem"></i><p class="card-title mt-2 mb-0 fw-bold small">Data Admin</p></div></div></div>
+          <div class="col-6 col-md-3"><div class="card menu-card h-100" onclick="showPage('owner-data-lapak-page')"><div class="card-body text-center p-3"><i class="bi bi-shop text-success" style="font-size: 2rem"></i><p class="card-title mt-2 mb-0 fw-bold small">Data Lapak</p></div></div></div>
+          <div class="col-6 col-md-3"><div class="card menu-card h-100" onclick="showPage('owner-data-supplier-page')"><div class="card-body text-center p-3"><i class="bi bi-truck text-warning" style="font-size: 2rem"></i><p class="card-title mt-2 mb-0 fw-bold small">Data Supplier</p></div></div></div>
+          <div class="col-6 col-md-3"><div class="card menu-card h-100" onclick="showPage('owner-manage-reports-page')"><div class="card-body text-center p-3"><i class="bi bi-file-earmark-check-fill text-primary" style="font-size: 2rem"></i><p class="card-title mt-2 mb-0 fw-bold small">Manajemen Laporan</p></div></div></div>
+          <div class="col-12"><div class="card menu-card h-100 bg-primary text-white" onclick="showPage('owner-pembayaran-page')"><div class="card-body text-center p-3"><i class="bi bi-credit-card-2-front-fill" style="font-size: 2rem"></i><p class="card-title mt-2 mb-0 fw-bold small">Pembayaran Supplier</p></div></div></div>
+        </div>
+      </div>
+
+      <div id="owner-laporan-biaya-page" class="page container py-4">
+         <header class="d-flex align-items-center pb-3 mb-4 border-bottom"><button class="btn btn-light me-3" onclick="showPage('owner-dashboard')"><i class="bi bi-arrow-left"></i></button><h4 class="mb-0">Laporan Biaya Supplier Harian</h4></header>
+        <div class="row mb-3 align-items-center">
+            <div class="col-md-4"><label for="laporan-biaya-datepicker" class="form-label">Pilih Tanggal Laporan:</label><input type="date" class="form-control" id="laporan-biaya-datepicker"></div>
+            <div class="col-md-8"><div class="card bg-warning text-dark mt-3"><div class="card-body text-end"><h6 class="card-title">Total Biaya Supplier Tanggal Terpilih</h6><h3 class="display-6" id="total-biaya-harian">Rp 0</h3></div></div></div>
+        </div>
+        <div class="accordion" id="laporan-biaya-accordion"><div class="text-center p-5"><div class="spinner-border text-warning"></div><p class="mt-2 text-muted">Memuat data...</p></div></div>
+      </div>
+
+      <div id="owner-laporan-pendapatan-page" class="page container py-4">
+        <header class="d-flex align-items-center pb-3 mb-4 border-bottom"><button class="btn btn-light me-3" onclick="showPage('owner-dashboard')"><i class="bi bi-arrow-left"></i></button><h4 class="mb-0">Laporan Pendapatan Harian</h4></header>
+        <div class="row mb-3 align-items-center">
+            <div class="col-md-4"><label for="laporan-pendapatan-datepicker" class="form-label">Pilih Tanggal Laporan:</label><input type="date" class="form-control" id="laporan-pendapatan-datepicker"></div>
+            <div class="col-md-8"><div class="card text-bg-success mt-3"><div class="card-body text-end"><h6 class="card-title">Total Pendapatan Tanggal Terpilih</h6><h3 class="display-6" id="total-pendapatan-harian">Rp 0</h3></div></div></div>
+        </div>
+        <div class="accordion" id="laporan-pendapatan-accordion"><div class="text-center p-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">Memuat data...</p></div></div>
+      </div>
+
+      <div id="owner-data-admin-page" class="page container py-4">
+        <header class="d-flex align-items-center pb-3 mb-4 border-bottom"><button class="btn btn-light me-3" onclick="showPage('owner-dashboard')"><i class="bi bi-arrow-left"></i></button><h4 class="mb-0">Data Admin</h4></header>
+        <div class="d-grid mb-3"><button class="btn btn-primary" onclick="openEditModal('admin')"><i class="bi bi-plus-circle-fill"></i> Tambah Admin Baru</button></div>
+        <div class="table-responsive"><table class="table table-striped table-hover align-middle"><thead class="table-light"><tr><th>Nama Lengkap</th><th>NIK</th><th>Username</th><th>Email</th><th>Kontak</th><th>Password</th><th>Aksi</th></tr></thead><tbody id="admin-table-body"></tbody></table></div>
+      </div>
+      
+      <div id="owner-data-lapak-page" class="page container py-4">
+        <header class="d-flex align-items-center pb-3 mb-4 border-bottom"><button class="btn btn-light me-3" onclick="showPage('owner-dashboard')"><i class="bi bi-arrow-left"></i></button><h4 class="mb-0">Data Lapak</h4></header>
+        <div class="d-grid mb-3"><button class="btn btn-primary" onclick="openEditModal('lapak')"><i class="bi bi-plus-circle-fill"></i> Tambah Lapak Baru</button></div>
+        <div class="table-responsive"><table class="table table-striped table-hover align-middle"><thead class="table-light"><tr><th>Lokasi Lapak</th><th>Penanggung Jawab</th><th>Anggota</th><th>Aksi</th></tr></thead><tbody id="lapak-table-body"></tbody></table></div>
+      </div>
+
+      <div id="owner-data-supplier-page" class="page container py-4">
+        <header class="d-flex align-items-center pb-3 mb-4 border-bottom"><button class="btn btn-light me-3" onclick="showPage('owner-dashboard')"><i class="bi bi-arrow-left"></i></button><h4 class="mb-0">Data Supplier</h4></header>
+        <div class="d-grid mb-3"><button class="btn btn-primary" onclick="openEditModal('supplier')"><i class="bi bi-plus-circle-fill"></i> Tambah Supplier Baru</button></div>
+        <div class="table-responsive"><table class="table table-striped table-hover align-middle"><thead class="table-light"><tr><th>Nama Supplier</th><th>Username</th><th>Kontak</th><th>No. Register</th><th>Password</th><th>Aksi</th></tr></thead><tbody id="supplier-table-body"></tbody></table></div>
+      </div>
+
+      <div id="owner-pembayaran-page" class="page container py-4">
+        <header class="d-flex align-items-center pb-3 mb-4 border-bottom"><button class="btn btn-light me-3" onclick="showPage('owner-dashboard')"><i class="bi bi-arrow-left"></i></button><h4 class="mb-0">Pembayaran Tagihan Supplier</h4></header>
+        <div id="pembayaran-content-loading" class="text-center p-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">Memuat data pembayaran...</p></div>
+        <div class="table-responsive" id="pembayaran-content-table" style="display:none;"><table class="table table-striped table-hover align-middle"><thead class="table-light"><tr><th>Nama Supplier</th><th>Total Tagihan</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="pembayaran-table-body"></tbody></table></div>
+      </div>
+      
+       <div id="owner-manage-reports-page" class="page container py-4">
+        <header class="d-flex align-items-center pb-3 mb-4 border-bottom"><button class="btn btn-light me-3" onclick="showPage('owner-dashboard')"><i class="bi bi-arrow-left"></i></button><h4 class="mb-0">Manajemen Laporan</h4></header>
+        <div class="text-center p-5" id="manage-reports-loading"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2 text-muted">Memuat data laporan...</p></div>
+        <div id="manage-reports-content" style="display: none;"><p class="text-muted">Berikut adalah laporan dari lapak yang belum dikonfirmasi.</p><div class="table-responsive"><table class="table table-striped table-hover align-middle"><thead class="table-light"><tr><th>ID</th><th>Lapak</th><th>PJ</th><th>Tanggal</th><th>Pendapatan</th><th>Terjual</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="unconfirmed-reports-table-body"></tbody></table></div></div>
+      </div>
+    </main>
+
+    <!-- ... (Lapak Pages remain largely the same) ... -->
+    <main id="lapak-pages">
+      <div id="lapak-dashboard" class="page container py-4">
+        <header class="d-flex justify-content-between align-items-center pb-3 mb-4 border-bottom">
+          <div>
+            <h4 class="mb-0">Halo, <span id="lapak-name"></span>!</h4>
+            <p class="text-muted mb-0 small" id="current-date-lapak"></p>
+          </div>
+          <button class="btn btn-outline-danger btn-sm" onclick="handleLogout()"><i class="bi bi-box-arrow-right"></i> Logout</button>
+        </header>
+        <h5 class="mb-3">Menu Utama</h5>
+        <div class="row g-3">
+          <div class="col-6 col-md-4"><div class="card menu-card h-100" onclick="showPage('terima-barang-page')"><div class="card-body text-center p-3"><i class="bi bi-box-arrow-in-down text-success" style="font-size: 2rem"></i><p class="card-title mt-2 mb-0 fw-bold small">Penerimaan Barang</p></div></div></div>
+          <div class="col-6 col-md-4"><div class="card menu-card h-100" onclick="showPage('buat-catatan-page')"><div class="card-body text-center p-3"><i class="bi bi-journal-check text-primary" style="font-size: 2rem"></i><p class="card-title mt-2 mb-0 fw-bold small">Buat Catatan</p></div></div></div>
+          <div class="col-6 col-md-4"><div class="card menu-card h-100" onclick="showPage('history-laporan-page')"><div class="card-body text-center p-3"><i class="bi bi-clock-history text-secondary" style="font-size: 2rem"></i><p class="card-title mt-2 mb-0 fw-bold small">History Laporan</p></div></div></div>
+        </div>
+      </div>
+      <div id="terima-barang-page" class="page container py-4">
+        <header class="d-flex align-items-center pb-3 mb-4 border-bottom"><button class="btn btn-light me-3" onclick="showPage('lapak-dashboard')"><i class="bi bi-arrow-left"></i></button><h4 class="mb-0">Penerimaan Barang</h4></header>
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end mb-3"><button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#add-manual-product-modal"><i class="bi bi-plus-circle"></i> Tambah Produk Manual</button></div>
+        <form id="barang-masuk-form">
+            <div class="mb-3"><label class="form-label fw-bold" for="supplier-select-barang-masuk">1. Pilih Sumber Produk</label><select class="form-select" id="supplier-select-barang-masuk" onchange="updateProductListMasuk()"><option selected value="">-- Pilih --</option></select></div>
+            <div id="product-list-header" style="display: none;"><hr /><h5 class="mb-3">2. Masukkan Jumlah Barang Diterima</h5></div>
+            <div id="product-list-container" class="mt-2"></div>
+            <div class="d-grid mt-4"><button type="submit" class="btn btn-success btn-lg" id="simpan-penerimaan-btn" disabled>Simpan Penerimaan</button></div>
+        </form>
+        <hr class="my-4">
+        <h5 class="mb-3">Barang yang Sudah Diterima Hari Ini</h5>
+        <div id="barang-masuk-today-list">
+            <div class="text-center p-3"><div class="spinner-border spinner-border-sm text-secondary" role="status"><span class="visually-hidden">Loading...</span></div></div>
+        </div>
+      </div>
+      <div id="buat-catatan-page" class="page container py-4 mb-5">
+        <header class="d-flex align-items-center pb-3 mb-4 border-bottom"><button class="btn btn-light me-3" onclick="showPage('lapak-dashboard')"><i class="bi bi-arrow-left"></i></button><h4 class="mb-0">Buat Catatan Harian</h4></header>
+        <div id="buat-catatan-loading" class="text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2 text-muted">Memuat data produk...</p></div>
+        <div id="buat-catatan-exists" class="alert alert-warning text-center" style="display: none;">Laporan untuk hari ini sudah pernah dibuat. Silakan kembali ke dashboard.</div>
+        <form id="buat-catatan-form" style="display: none;">
+          <div class="card mb-4"><div class="card-header fw-bold">1. Data Umum Harian</div><div class="card-body"><label for="uang-pertama" class="form-label">Uang Pertama Diterima</label><div class="input-group"><span class="input-group-text">Rp</span><input type="number" class="form-control" id="uang-pertama" placeholder="Contoh: 50000" required></div></div></div>
+          <div class="card mb-4"><div class="card-header fw-bold">2. Rincian Catatan Produk</div><div class="card-body p-0"><div id="catatan-produk-container" class="list-group list-group-flush"></div></div></div>
+          <div class="card mb-4"><div class="card-header fw-bold">3. Laporan Barang Return (Jika Ada)</div><div class="card-body"><div id="return-container"></div><button type="button" class="btn btn-sm btn-outline-secondary" onclick="addReturnField()"><i class="bi bi-plus"></i> Tambah Barang Return</button></div></div>
+          <div class="card mb-4"><div class="card-header fw-bold">4. Rekapitulasi Manual (Untuk Perbandingan)</div><div class="card-body"><div class="row g-3"><div class="col-md-6"><label class="form-label">Uang Pertama</label><input type="number" class="form-control" id="manual-uang-pertama" placeholder="Input manual"></div><div class="col-md-6"><label class="form-label">Total Barang Terjual (Pcs)</label><input type="number" class="form-control" id="manual-total-barang" placeholder="Input manual"></div><div class="col-md-4"><label class="form-label">Total via Cash</label><input type="number" class="form-control" id="manual-total-cash" placeholder="Input manual"></div><div class="col-md-4"><label class="form-label">Total via QRIS</label><input type="number" class="form-control" id="manual-total-qris" placeholder="Input manual"></div><div class="col-md-4"><label class="form-label">Total via BCA</label><input type="number" class="form-control" id="manual-total-bca" placeholder="Input manual"></div><div class="col-12"><label class="form-label">Total Uang Didapat</label><input type="number" class="form-control" id="manual-total-uang" placeholder="Input manual"></div></div></div></div>
+          <div class="card p-3 border-0 shadow-lg sticky-footer">
+            <div class="row g-3 align-items-center">
+              <div class="col-5">
+                <small class="text-muted">Total Pendapatan</small>
+                <h5 id="auto-total-pendapatan" class="mb-0 fw-bold text-success">Rp 0</h5>
+              </div>
+              <div class="col-5">
+                <div>
+                  <small class="text-muted">Total Bayar ke Supplier</small>
+                  <h5 id="auto-total-biaya" class="mb-0 fw-bold text-danger">Rp 0</h5>
+                </div>
+              </div>
+              <div class="col-2 d-grid">
+                <button type="submit" class="btn btn-primary btn-lg">Kirim</button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div id="history-laporan-page" class="page container py-4">
+        <header class="d-flex align-items-center pb-3 mb-4 border-bottom"><button class="btn btn-light me-3" onclick="showPage('lapak-dashboard')"><i class="bi bi-arrow-left"></i></button><h4 class="mb-0">History Laporan</h4></header>
+        <div id="history-loading" class="text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>
+        <div id="history-list" class="list-group"></div>
+      </div>
+    </main>
+
+    <!-- =================================================================== -->
+    <!-- SEMUA KONTEN SUPPLIER -->
+    <!-- =================================================================== -->
+    <main id="supplier-pages">
+      <div id="supplier-dashboard" class="page container py-4">
+        <header class="d-flex justify-content-between align-items-center pb-3 mb-4 border-bottom">
+          <div>
+            <h4 class="mb-0">Dashboard, <span id="supplier-name"></span></h4>
+            <p class="text-muted mb-0 small" id="current-date-supplier"></p>
+          </div>
+          <button class="btn btn-outline-danger btn-sm" onclick="handleLogout()"><i class="bi bi-box-arrow-right"></i> Logout</button>
+        </header>
+        
+        <div class="row g-3 mb-4">
+          <div class="col-md-6">
+            <div class="card bg-primary text-white shadow-sm">
+              <div class="card-body">
+                <h6 class="card-title"><i class="bi bi-wallet2"></i> Total Tagihan Saat Ini</h6>
+                <h4 class="display-6" id="supplier-total-tagihan">Rp 0</h4>
+                <small>Total yang belum dibayarkan oleh owner</small>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card text-bg-success shadow-sm">
+              <div class="card-body">
+                <h6 class="card-title"><i class="bi bi-cart-check-fill"></i> Penjualan (Bulan Ini)</h6>
+                <h4 class="display-6" id="supplier-penjualan-bulan-ini">Rp 0</h4>
+                <small>Berdasarkan laporan terkonfirmasi</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <h5 class="mb-3">Menu Laporan</h5>
+        <div class="row g-3">
+          <div class="col-12">
+            <div class="card menu-card h-100 bg-info text-white" onclick="showPage('supplier-history-page')">
+              <div class="card-body text-center p-3">
+                <i class="bi bi-file-earmark-text-fill" style="font-size: 2rem"></i>
+                <p class="card-title mt-2 mb-0 fw-bold small">Riwayat Penjualan & Pembayaran</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="supplier-history-page" class="page container py-4">
+        <header class="d-flex align-items-center pb-3 mb-4 border-bottom"><button class="btn btn-light me-3" onclick="showPage('supplier-dashboard')"><i class="bi bi-arrow-left"></i></button><h4 class="mb-0">Riwayat & Laporan</h4></header>
+        <div id="supplier-history-loading" class="text-center p-5"><div class="spinner-border text-primary"></div></div>
+        <div id="supplier-history-content" style="display: none;">
+          <div class="row">
+            <div class="col-lg-8">
+              <h5 class="mb-3">Riwayat Penjualan Produk Anda</h5>
+              <div class="table-responsive">
+                <table class="table table-striped table-sm"><thead class="table-light"><tr><th>Tanggal</th><th>Lapak</th><th>Produk</th><th>Terjual</th><th>Nominal</th></tr></thead><tbody id="supplier-sales-history-body"></tbody></table>
+              </div>
+            </div>
+            <div class="col-lg-4">
+              <h5 class="mb-3">Riwayat Pembayaran Diterima</h5>
+              <div class="table-responsive">
+                <table class="table table-striped table-sm"><thead class="table-light"><tr><th>Tanggal</th><th>Jumlah</th><th>Metode</th></tr></thead><tbody id="supplier-payment-history-body"></tbody></table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+    
+    <!-- ... (All Modals) ... -->
+    <div class="modal fade" id="edit-admin-modal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="admin-modal-title"></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><form id="edit-admin-form"><input type="hidden" id="edit-admin-id" /><div class="modal-body"><div class="mb-3"><label class="form-label">Nama Lengkap</label><input type="text" class="form-control" id="edit-admin-nama" required /></div><div class="mb-3"><label class="form-label">NIK</label><input type="number" class="form-control" id="edit-admin-nik" required /></div><div class="mb-3"><label class="form-label">Username</label><input type="text" class="form-control" id="edit-admin-username" required /></div><div class="mb-3"><label class="form-label">Email</label><input type="email" class="form-control" id="edit-admin-email" required /></div><div class="mb-3"><label class="form-label">Nomor Kontak</label><input type="tel" class="form-control" id="edit-admin-kontak" required /></div><div class="mb-3"><label class="form-label">Password</label><div class="input-group"><input type="password" class="form-control" id="edit-admin-password" /><button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility(this, 'edit-admin-password')"><i class="bi bi-eye-slash"></i></button></div><small class="form-text text-muted">Kosongkan jika tidak ingin mengubah password.</small></div><div class="mb-3"><label class="form-label">Konfirmasi Password</label><div class="input-group"><input type="password" class="form-control" id="edit-admin-password-confirm" /><button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility(this, 'edit-admin-password-confirm')"><i class="bi bi-eye-slash"></i></button></div></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Simpan</button></div></form></div></div></div>
+    <div class="modal fade" id="edit-lapak-modal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="lapak-modal-title"></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><form id="edit-lapak-form"><input type="hidden" id="edit-lapak-id" /><div class="modal-body"><div class="mb-3"><label class="form-label">Lokasi Lapak</label><input type="text" class="form-control" id="edit-lapak-lokasi" required /></div><div class="mb-3"><label class="form-label">Penanggung Jawab (Wajib)</label><select class="form-select" id="lapak-pj-select" required></select></div><div class="mb-3"><label class="form-label">Anggota (Opsional)</label><div id="lapak-anggota-selection"></div></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Simpan</button></div></form></div></div></div>
+    <div class="modal fade" id="edit-supplier-modal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="supplier-modal-title"></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><form id="edit-supplier-form"><input type="hidden" id="edit-supplier-id" /><div class="modal-body"><div class="row g-3"><div class="col-md-6"><label class="form-label">Nama Supplier</label><input type="text" id="edit-supplier-nama" class="form-control" required /></div><div class="col-md-6"><label class="form-label">Username</label><input type="text" id="edit-supplier-username" class="form-control" required /></div><div class="col-md-6"><label class="form-label">Kontak</label><input type="tel" id="edit-supplier-kontak" class="form-control" required /></div><div class="col-md-6"><label class="form-label">Nomor Register</label><input type="text" id="edit-supplier-register" class="form-control" readonly /></div><div class="col-12"><label class="form-label">Alamat</label><textarea class="form-control" id="edit-supplier-alamat" rows="2"></textarea></div><div class="col-md-6"><label class="form-label">Password</label><div class="input-group"><input type="password" id="edit-supplier-password" class="form-control" /><button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility(this, 'edit-supplier-password')"><i class="bi bi-eye-slash"></i></button></div><small class="form-text text-muted">Kosongkan jika tidak diubah.</small></div><div class="col-md-6"><label class="form-label">Konfirmasi Password</label><div class="input-group"><input type="password" class="form-control" id="edit-supplier-password-confirm" /><button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility(this, 'edit-supplier-password-confirm')"><i class="bi bi-eye-slash"></i></button></div></div></div><hr class="edit-mode-hidden" /><h6>Produk yang Disediakan</h6><p class="small text-muted edit-mode-hidden">Menambah produk dan alokasi lapak hanya bisa dilakukan saat membuat supplier baru.</p><div id="product-fields-container" class="edit-mode-hidden"></div><button type="button" class="btn btn-sm btn-outline-secondary mt-2 edit-mode-hidden" onclick="addProductField()"><i class="bi bi-plus"></i> Tambah Produk</button><hr class="edit-mode-hidden" /><h6>Alokasikan ke Lapak</h6><div id="supplier-lapak-selection" class="mt-2 edit-mode-hidden"></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Simpan</button></div></form></div></div></div>
+    <div class="modal fade" id="add-manual-product-modal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Tambah Produk Manual</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><form id="add-manual-product-form"><div class="modal-body"><div class="mb-3"><label for="manual-nama-produk" class="form-label">Nama Produk</label><input type="text" class="form-control" id="manual-nama-produk" required></div><div class="mb-3"><label for="manual-harga-beli" class="form-label">Harga Beli</label><div class="input-group"><span class="input-group-text">Rp</span><input type="number" class="form-control" id="manual-harga-beli" value="8000" required></div></div><div class="mb-3"><label for="manual-harga-jual" class="form-label">Harga Jual</label><div class="input-group"><span class="input-group-text">Rp</span><input type="number" class="form-control" id="manual-harga-jual" value="10000" required></div></div><div class="mb-3"><label for="manual-jumlah-stok" class="form-label">Jumlah Stok Awal</label><div class="input-group"><input type="number" class="form-control" id="manual-jumlah-stok" value="0" min="0" required><span class="input-group-text">Pcs</span></div></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Simpan Produk</button></div></form></div></div></div>
+    <div class="modal fade" id="payment-confirmation-modal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Konfirmasi Pembayaran</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><form id="payment-confirmation-form"><input type="hidden" id="payment-supplier-id"><input type="hidden" id="payment-supplier-amount"><div class="modal-body"><p>Anda akan melakukan pembayaran kepada <strong id="payment-supplier-name-confirm"></strong> sebesar <strong id="payment-amount-confirm"></strong>.</p><div class="mb-3"><label for="payment-method-select" class="form-label">Pilih Metode Pembayaran</label><select id="payment-method-select" class="form-select" required><option value="" selected disabled>-- Pilih Metode --</option><option value="DANA">DANA</option><option value="BCA">BCA</option></select></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-success">Konfirmasi & Bayar</button></div></form></div></div></div>
+    <!-- Report Detail Modal -->
+    <div class="modal fade" id="report-detail-modal" tabindex="-1" aria-labelledby="reportDetailModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="reportDetailModalLabel">Detail Laporan Harian</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div id="invoice-content" class="invoice-box">
+              <!-- Content will be populated by JavaScript -->
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+            <button type="button" class="btn btn-primary" onclick="downloadReportAsPDF()"><i class="bi bi-download"></i> Download PDF</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCRIPT WAJIB UNTUK BOOTSTRAP -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+      const { jsPDF } = window.jspdf;
+      // --- GLOBAL STATE & MODAL INSTANCES ---
+      let AppState = { currentUser: null, ownerData: {}, catatanData: { products: [] } };
+      let modals = {};
+
+      // --- HELPER & CORE FUNCTIONS ---
+      function formatCurrency(value) {
+        return `Rp ${new Intl.NumberFormat('id-ID').format(value)}`;
+      }
+
+      async function showPage(pageId) {
+        document.querySelectorAll(".page").forEach((e) => (e.style.display = "none"));
+        const activePage = document.getElementById(pageId);
+        if (activePage) {
+          activePage.style.display = "block";
+          if (pageId === "login-page") activePage.style.display = "flex";
+          const { role } = AppState.currentUser || {};
+          if (role === 'owner') {
+              if (pageId.startsWith("owner-laporan")) {
+                  document.getElementById('laporan-pendapatan-datepicker').dispatchEvent(new Event('change'));
+                  document.getElementById('laporan-biaya-datepicker').dispatchEvent(new Event('change'));
+              }
+              if (pageId.startsWith("owner-manage-reports")) await populateUnconfirmedReports();
+              if (pageId.startsWith("owner-pembayaran-page")) await populatePembayaranPage();
+          } else if (role === 'lapak') {
+              if (pageId === 'terima-barang-page') await populateBarangMasukPage();
+              if (pageId === 'buat-catatan-page') await populateBuatCatatanPage();
+              if (pageId === 'history-laporan-page') await populateHistoryLaporanPage();
+          } else if (role === 'supplier') {
+              if (pageId === 'supplier-dashboard') await populateSupplierDashboard();
+              if (pageId === 'supplier-history-page') await populateSupplierHistoryPage();
+          }
+        }
+      }
+
+      function updateDate() {
+        const today = new Date().toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+        ["current-date-lapak", "current-date-owner", "current-date-supplier"].forEach(id => { if(document.getElementById(id)) document.getElementById(id).textContent = today; });
+      }
+
+      function showToast(message, isSuccess = true) {
+        const toastEl = document.getElementById("liveToast");
+        if (!toastEl) return;
+        const toast = bootstrap.Toast.getOrCreateInstance(toastEl);
+        document.getElementById("toast-body").textContent = message;
+        toastEl.className = `toast ${isSuccess ? "bg-success" : "bg-danger"} text-white`;
+        document.getElementById("toast-icon").className = `bi ${isSuccess ? "bi-check-circle-fill" : "bi-exclamation-triangle-fill"} me-2`;
+        document.getElementById("toast-title").textContent = isSuccess ? "Sukses" : "Gagal";
+        toast.show();
+      }
+
+      function togglePasswordVisibility(button, fieldId) {
+        const field = document.getElementById(fieldId);
+        const icon = button.querySelector("i");
+        if (field.type === "password") { field.type = "text"; icon.classList.replace("bi-eye-slash", "bi-eye"); } 
+        else { field.type = "password"; icon.classList.replace("bi-eye", "bi-eye-slash"); }
+      }
+
+      function toggleTablePasswordVisibility(icon) {
+        const passSpan = icon.closest("td").querySelector(".password-text");
+        if (passSpan.textContent.includes("•")) { passSpan.textContent = passSpan.dataset.password; icon.classList.replace("bi-eye-slash", "bi-eye"); }
+        else { passSpan.textContent = "••••••••"; icon.classList.replace("bi-eye", "bi-eye-slash"); }
+      }
+
+      // --- LOGIN & ROUTING FUNCTIONS ---
+      async function handleLogin(e) {
+        e.preventDefault();
+        const username = document.getElementById("username").value.trim(), password = document.getElementById("password").value;
+        try {
+          const response = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password }) });
+          const result = await response.json();
+          if (response.ok && result.success) { localStorage.setItem("userSession", JSON.stringify(result)); AppState.currentUser = result; await routeUser(result.role); } 
+          else { showToast(result.message || "Login Gagal", false); }
+        } catch (e) { showToast("Terjadi kesalahan koneksi.", false); }
+      }
+
+      async function handleAuthRouting() {
+        const session = localStorage.getItem("userSession");
+        if (session) { AppState.currentUser = JSON.parse(session); await routeUser(AppState.currentUser.role); } 
+        else { showLoginPage(); }
+      }
+
+      function showLoginPage() {
+        document.querySelectorAll("main").forEach(main => main.style.display = "none");
+        showPage("login-page");
+      }
+
+      async function routeUser(role) {
+        document.querySelectorAll("main").forEach(main => main.style.display = "none");
+        if (role === "owner") { document.getElementById("owner-pages").style.display = "block"; showPage("owner-dashboard"); await populateOwnerDashboard(); document.getElementById("owner-name").textContent = AppState.currentUser.user_info.nama_lengkap; }
+        else if (role === "lapak") { document.getElementById("lapak-pages").style.display = "block"; showPage("lapak-dashboard"); document.getElementById("lapak-name").textContent = AppState.currentUser.user_info.nama_lengkap; } 
+        else if (role === "supplier") { document.getElementById("supplier-pages").style.display = "block"; showPage("supplier-dashboard"); document.getElementById("supplier-name").textContent = AppState.currentUser.user_info.nama_supplier; await populateSupplierDashboard();} 
+        else { showLoginPage(); }
+      }
+      
+      function handleLogout() { localStorage.removeItem("userSession"); AppState.currentUser = null; window.location.reload(); }
+
+      // --- OWNER FUNCTIONS ---
+      async function populateOwnerDashboard() {
+        try {
+            const dataResp = await fetch("/api/get_data_owner");
+            if (!dataResp.ok) throw new Error("Gagal mengambil data owner");
+            AppState.ownerData = await dataResp.json();
+            document.getElementById("owner-pendapatan-card").textContent = formatCurrency(AppState.ownerData.summary.pendapatan_bulan_ini);
+            document.getElementById("owner-biaya-card").textContent = formatCurrency(AppState.ownerData.summary.biaya_bulan_ini);
+            await populateOwnerDataPages();
+        } catch(error) { showToast("Gagal memuat data owner.", false); }
+      }
+
+      async function populateOwnerDataPages() {
+        const { admin_data, lapak_data, supplier_data } = AppState.ownerData;
+        document.getElementById("admin-table-body").innerHTML = admin_data.map(u => `<tr><td>${u.nama_lengkap}</td><td>${u.nik}</td><td>${u.username}</td><td>${u.email}</td><td>${u.nomor_kontak}</td><td class="password-cell"><span class="password-text me-2" data-password="${u.password}">••••••••</span><i class="bi bi-eye-slash" style="cursor: pointer;" onclick="toggleTablePasswordVisibility(this)"></i></td><td><div class="btn-group"><button class="btn btn-sm btn-warning btn-action" onclick='openEditModal("admin", ${u.id})'><i class="bi bi-pencil-fill"></i></button><button class="btn btn-sm btn-danger btn-action" onclick='handleDelete("admin", ${u.id})'><i class="bi bi-trash-fill"></i></button></div></td></tr>`).join("");
+        document.getElementById("lapak-table-body").innerHTML = lapak_data.map(l => `<tr><td>${l.lokasi}</td><td>${l.penanggung_jawab}</td><td>${l.anggota.map(a => `<span class="badge bg-secondary me-1">${a.nama}</span>`).join('') || '-'}</td><td><div class="btn-group"><button class="btn btn-sm btn-warning btn-action" onclick='openEditModal("lapak", ${l.id})'><i class="bi bi-pencil-fill"></i></button><button class="btn btn-sm btn-danger btn-action" onclick='handleDelete("lapak", ${l.id})'><i class="bi bi-trash-fill"></i></button></div></td></tr>`).join("");
+        document.getElementById("supplier-table-body").innerHTML = supplier_data.map(s => `<tr><td>${s.nama_supplier}</td><td>${s.username || "-"}</td><td>${s.kontak}</td><td>${s.nomor_register || "-"}</td><td class="password-cell"><span class="password-text me-2" data-password="${s.password}">••••••••</span><i class="bi bi-eye-slash" style="cursor: pointer;" onclick="toggleTablePasswordVisibility(this)"></i></td><td><div class="btn-group"><button class="btn btn-sm btn-warning btn-action" onclick='openEditModal("supplier", ${s.id})'><i class="bi bi-pencil-fill"></i></button><button class="btn btn-sm btn-danger btn-action" onclick='handleDelete("supplier", ${s.id})'><i class="bi bi-trash-fill"></i></button></div></td></tr>`).join("");
+      }
+      
+      async function showReportDetails(reportId) {
+        const container = document.getElementById('invoice-content');
+        container.innerHTML = `<div class="text-center p-5"><div class="spinner-border"></div></div>`;
+        modals.reportDetail.show();
+        try {
+            const resp = await fetch(`/api/get_report_details/${reportId}`);
+            const result = await resp.json();
+            if (!result.success) throw new Error(result.message);
+            
+            const data = result.data;
+            const rincianHtml = data.rincian_produk.map((p, index) => `
+                <tr class="item">
+                    <td>${index + 1}</td>
+                    <td>${p.nama_produk} (${p.supplier})</td>
+                    <td class="text-center">${p.stok_awal}</td>
+                    <td class="text-center">${p.stok_akhir}</td>
+                    <td class="text-center">${p.terjual}</td>
+                    <td class="text-end">${formatCurrency(p.harga_jual)}</td>
+                    <td class="text-end">${formatCurrency(p.total_pendapatan)}</td>
+                </tr>
+            `).join('');
+
+            const compareHtml = `
+              <tr>
+                <td>Uang Pertama</td>
+                <td class="text-end">${formatCurrency(data.rekap_otomatis.uang_pertama)}</td>
+                <td class="text-end">${formatCurrency(data.rekap_manual.uang_pertama)}</td>
+              </tr>
+              <tr>
+                <td>Terjual (Cash)</td>
+                <td class="text-end">${formatCurrency(data.rekap_otomatis.terjual_cash)}</td>
+                <td class="text-end">${formatCurrency(data.rekap_manual.terjual_cash)}</td>
+              </tr>
+               <tr>
+                <td>Terjual (QRIS)</td>
+                <td class="text-end">${formatCurrency(data.rekap_otomatis.terjual_qris)}</td>
+                <td class="text-end">${formatCurrency(data.rekap_manual.terjual_qris)}</td>
+              </tr>
+               <tr>
+                <td>Terjual (BCA)</td>
+                <td class="text-end">${formatCurrency(data.rekap_otomatis.terjual_bca)}</td>
+                <td class="text-end">${formatCurrency(data.rekap_manual.terjual_bca)}</td>
+              </tr>
+              <tr class="fw-bold">
+                <td>Total Produk Terjual</td>
+                <td class="text-end">${data.rekap_otomatis.total_produk_terjual} Pcs</td>
+                <td class="text-end">${data.rekap_manual.total_produk_terjual} Pcs</td>
+              </tr>
+              <tr class="fw-bold table-group-divider">
+                <td>Total Pendapatan</td>
+                <td class="text-end">${formatCurrency(data.rekap_otomatis.total_pendapatan)}</td>
+                <td class="text-end">${formatCurrency(data.rekap_manual.total_pendapatan)}</td>
+              </tr>
+            `;
+
+            container.innerHTML = `
+              <table>
+                <tr class="top">
+                  <td colspan="7">
+                    <table>
+                      <tr>
+                        <td class="title">
+                          <h4>Laporan Penjualan</h4>
+                        </td>
+                        <td style="text-align: right;">
+                          ID Laporan: #${data.id}<br>
+                          Tanggal: ${data.tanggal}<br>
+                          Status: ${data.status}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr class="information">
+                  <td colspan="7">
+                    <table>
+                      <tr>
+                        <td>
+                          Lapak: <strong>${data.lokasi}</strong><br>
+                          Penanggung Jawab:<br>
+                          ${data.penanggung_jawab}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr class="heading">
+                  <td>No.</td>
+                  <td>Produk</td>
+                  <td class="text-center">Stok Awal</td>
+                  <td class="text-center">Stok Akhir</td>
+                  <td class="text-center">Terjual</td>
+                  <td class="text-end">Harga</td>
+                  <td class="text-end">Subtotal</td>
+                </tr>
+                ${rincianHtml}
+                <tr class="total">
+                    <td colspan="6" class="text-end fw-bold">Total Pendapatan</td>
+                    <td class="text-end fw-bold">${formatCurrency(data.rekap_otomatis.total_pendapatan)}</td>
+                </tr>
+                 <tr class="total">
+                    <td colspan="6" class="text-end fw-bold">Total Biaya Supplier</td>
+                    <td class="text-end fw-bold">${formatCurrency(data.rekap_otomatis.total_biaya_supplier)}</td>
+                </tr>
+              </table>
+              <h5 class="mt-5 mb-3">Perbandingan Rekapitulasi</h5>
+              <table class="table table-bordered">
+                <thead class="table-light">
+                  <tr>
+                    <th>Deskripsi</th>
+                    <th class="text-end">Otomatis (Sistem)</th>
+                    <th class="text-end">Manual (Karyawan)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${compareHtml}
+                </tbody>
+              </table>
+            `;
+
+        } catch(e) { container.innerHTML = `<div class="alert alert-danger">${e.message}</div>`; }
+      }
+
+      async function downloadReportAsPDF(){
+        const invoiceElement = document.getElementById('invoice-content');
+        const reportId = invoiceElement.querySelector('td[style="text-align: right;"]').innerText.split('\n')[0].split('#')[1];
+        
+        const modalBody = document.querySelector('#report-detail-modal .modal-body');
+        const originalOverflow = modalBody.style.overflow;
+        modalBody.style.overflow = 'visible';
+
+        await html2canvas(invoiceElement, { scale: 2 }).then(canvas => {
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF({
+                orientation: 'p',
+                unit: 'mm',
+                format: 'a4'
+            });
+            const imgProps= pdf.getImageProperties(imgData);
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdf.save(`laporan-harian-${reportId}.pdf`);
+        });
+        
+        modalBody.style.overflow = originalOverflow;
+        showToast("PDF berhasil diunduh.");
+      }
+      
+      async function populateLaporanPendapatan() {
+        const date = document.getElementById('laporan-pendapatan-datepicker').value;
+        const accordionEl = document.getElementById('laporan-pendapatan-accordion');
+        accordionEl.innerHTML = `<div class="text-center p-5"><div class="spinner-border text-primary"></div></div>`;
+        try {
+          const resp = await fetch(`/api/get_laporan_pendapatan_harian?date=${date}`);
+          if (!resp.ok) throw new Error("Gagal mengambil data");
+          const data = await resp.json();
+          document.getElementById('total-pendapatan-harian').textContent = formatCurrency(data.total_harian);
+          accordionEl.innerHTML = '';
+          if (data.laporan_per_lapak.length === 0) {
+            accordionEl.innerHTML = '<div class="alert alert-warning text-center">Tidak ada laporan untuk tanggal ini.</div>';
+          } else {
+            data.laporan_per_lapak.forEach((lapak, index) => {
+              const productList = lapak.rincian_pendapatan.map(p => `<li class="list-group-item d-flex justify-content-between"><div>${p.produk} <small class="text-muted">(${p.supplier})</small></div><div><span class="badge text-bg-light me-2">Awal: ${p.stok_awal}</span><span class="badge text-bg-light me-2">Akhir: ${p.stok_akhir}</span><span class="badge bg-primary rounded-pill">${p.jumlah} Pcs</span></div></li>`).join('');
+              accordionEl.innerHTML += `<div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button ${index !== 0 ? 'collapsed' : ''}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-lp-${index}"><strong>${lapak.lokasi}</strong> <span class="ms-auto me-3">${formatCurrency(lapak.total_pendapatan)}</span></button></h2><div id="collapse-lp-${index}" class="accordion-collapse collapse ${index === 0 ? 'show' : ''}"><div class="accordion-body"><p>PJ: <strong>${lapak.penanggung_jawab}</strong></p><ul class="list-group list-group-flush">${productList}</ul></div></div></div>`;
+            });
+          }
+        } catch (error) {
+          accordionEl.innerHTML = '<div class="alert alert-danger text-center">Gagal memuat.</div>';
+        }
+      }
+      async function populateLaporanBiaya() {
+        const date = document.getElementById('laporan-biaya-datepicker').value;
+        const accordionEl = document.getElementById('laporan-biaya-accordion');
+        accordionEl.innerHTML = `<div class="text-center p-5"><div class="spinner-border text-warning"></div></div>`;
+        try {
+          const resp = await fetch(`/api/get_laporan_biaya_harian?date=${date}`);
+          if (!resp.ok) throw new Error("Gagal mengambil data");
+          const data = await resp.json();
+          document.getElementById('total-biaya-harian').textContent = formatCurrency(data.total_harian);
+          accordionEl.innerHTML = '';
+          if (data.laporan_per_lapak.length === 0) {
+            accordionEl.innerHTML = '<div class="alert alert-warning text-center">Tidak ada laporan untuk tanggal ini.</div>';
+          } else {
+            data.laporan_per_lapak.forEach((lapak, index) => {
+              const productList = lapak.rincian_biaya.map(p => `<li class="list-group-item d-flex justify-content-between"><div>${p.produk} <small class="text-muted">(${p.supplier})</small></div><div><span class="badge bg-primary rounded-pill me-2">${p.jumlah} Pcs</span><span class="fw-bold">${formatCurrency(p.biaya)}</span></div></li>`).join('')
+              accordionEl.innerHTML += `<div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button ${index !== 0 ? 'collapsed' : ''}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-lb-${index}"><strong>${lapak.lokasi}</strong> <span class="ms-auto me-3">${formatCurrency(lapak.total_biaya)}</span></button></h2><div id="collapse-lb-${index}" class="accordion-collapse collapse ${index === 0 ? 'show' : ''}"><div class="accordion-body"><p>PJ: <strong>${lapak.penanggung_jawab}</strong></p><ul class="list-group list-group-flush">${productList}</ul></div></div></div>`;
+            });
+          }
+        } catch (error) { accordionEl.innerHTML = '<div class="alert alert-danger text-center">Gagal memuat.</div>'; }
+      }
+      async function populateUnconfirmedReports() {
+        const loadingEl = document.getElementById('manage-reports-loading'), contentEl = document.getElementById('manage-reports-content');
+        const tableBody = document.getElementById('unconfirmed-reports-table-body');
+        loadingEl.style.display = 'block'; contentEl.style.display = 'none';
+        try {
+          const resp = await fetch('/api/get_unconfirmed_reports');
+          const result = await resp.json();
+          if (result.success) {
+            if (result.reports.length === 0) {
+              tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Tidak ada laporan yang perlu dikonfirmasi.</td></tr>';
+            } else {
+              tableBody.innerHTML = result.reports.map(r => `<tr>
+                <td>${r.id}</td><td>${r.lokasi}</td><td>${r.penanggung_jawab}</td>
+                <td>${new Date(r.tanggal).toLocaleDateString('id-ID')}</td>
+                <td>${formatCurrency(r.total_pendapatan)}</td><td>${r.total_produk_terjual} Pcs</td>
+                <td><span class="badge bg-warning text-dark">${r.status}</span></td>
+                <td>
+                  <div class="btn-group">
+                    <button class="btn btn-sm btn-info" onclick="showReportDetails(${r.id})"><i class="bi bi-eye-fill"></i></button>
+                    <button class="btn btn-sm btn-success" onclick="confirmReport(${r.id})"><i class="bi bi-check-circle-fill"></i></button>
+                  </div>
+                </td></tr>`).join('');
+            }
+            loadingEl.style.display = 'none'; contentEl.style.display = 'block';
+          } else { throw new Error(result.message); }
+        } catch (error) { loadingEl.innerHTML = `<div class="alert alert-danger">${error.message || "Gagal memuat data"}</div>`; }
+      }
+
+      async function confirmReport(reportId) {
+        if (!confirm("Apakah Anda yakin ingin mengkonfirmasi laporan ini? Tindakan ini akan memperbarui saldo tagihan supplier.")) return;
+        try {
+          const resp = await fetch(`/api/confirm_report/${reportId}`, { method: 'POST' });
+          const result = await resp.json();
+          showToast(result.message, result.success);
+          if (result.success) {
+            await populateUnconfirmedReports();
+            await populateOwnerDashboard();
+          }
+        } catch (e) { showToast("Gagal terhubung ke server.", false); }
+      }
+      
+      // -- OWNER CRUD (Create, Read, Update, Delete) --
+      async function openEditModal(type, id = null) {
+          const isEdit = id !== null;
+          let data = {};
+          if (isEdit) {
+              const dataArray = AppState.ownerData[`${type}_data`];
+              data = dataArray.find(item => item.id === id);
+              if (!data) return showToast("Data tidak ditemukan.", false);
+          }
+          
+          if (type === 'admin') {
+              const form = document.getElementById('edit-admin-form'); form.reset();
+              document.getElementById('admin-modal-title').textContent = isEdit ? 'Edit Admin' : 'Tambah Admin Baru';
+              document.getElementById('edit-admin-id').value = id || '';
+              if (isEdit) {
+                  document.getElementById('edit-admin-nama').value = data.nama_lengkap;
+                  document.getElementById('edit-admin-nik').value = data.nik;
+                  document.getElementById('edit-admin-username').value = data.username;
+                  document.getElementById('edit-admin-email').value = data.email;
+                  document.getElementById('edit-admin-kontak').value = data.nomor_kontak;
+              }
+              modals.admin.show();
+          } else if (type === 'lapak') {
+              const form = document.getElementById('edit-lapak-form'); form.reset();
+              document.getElementById('lapak-modal-title').textContent = isEdit ? 'Edit Lapak' : 'Tambah Lapak Baru';
+              document.getElementById('edit-lapak-id').value = id || '';
+              
+              const pjSelect = document.getElementById('lapak-pj-select');
+              const anggotaContainer = document.getElementById('lapak-anggota-selection');
+              pjSelect.innerHTML = '<option value="" selected disabled>-- Pilih PJ --</option>' + AppState.ownerData.admin_data.map(a => `<option value="${a.id}">${a.nama_lengkap}</option>`).join('');
+              anggotaContainer.innerHTML = AppState.ownerData.admin_data.map(a => `<div class="form-check"><input class="form-check-input" type="checkbox" value="${a.id}" id="anggota-${a.id}"><label class="form-check-label" for="anggota-${a.id}">${a.nama_lengkap}</label></div>`).join('');
+
+              if (isEdit) {
+                  document.getElementById('edit-lapak-lokasi').value = data.lokasi;
+                  pjSelect.value = data.user_id;
+                  data.anggota_ids.forEach(anggotaId => {
+                      const checkbox = document.getElementById(`anggota-${anggotaId}`);
+                      if (checkbox) checkbox.checked = true;
+                  });
+              }
+              modals.lapak.show();
+          } else if (type === 'supplier') {
+              const form = document.getElementById('edit-supplier-form'); form.reset();
+              document.getElementById('supplier-modal-title').textContent = isEdit ? 'Edit Supplier' : 'Tambah Supplier Baru';
+              document.getElementById('edit-supplier-id').value = id || '';
+              form.querySelectorAll('.edit-mode-hidden').forEach(el => el.style.display = isEdit ? 'none' : '');
+
+              if (isEdit) {
+                  document.getElementById('edit-supplier-nama').value = data.nama_supplier;
+                  document.getElementById('edit-supplier-username').value = data.username;
+                  document.getElementById('edit-supplier-kontak').value = data.kontak;
+                  document.getElementById('edit-supplier-register').value = data.nomor_register;
+                  document.getElementById('edit-supplier-alamat').value = data.alamat;
+              } else {
+                  const resp = await fetch('/api/get_next_supplier_reg_number');
+                  const result = await resp.json();
+                  document.getElementById('edit-supplier-register').value = result.reg_number;
+                  document.getElementById('supplier-lapak-selection').innerHTML = AppState.ownerData.lapak_data.map(l => `<div class="form-check"><input class="form-check-input" type="checkbox" value="${l.id}" id="sl-${l.id}"><label class="form-check-label" for="sl-${l.id}">${l.lokasi}</label></div>`).join('') || '<p class="text-muted small">Belum ada lapak.</p>';
+                  document.getElementById('product-fields-container').innerHTML = '';
+                  addProductField();
+              }
+              modals.supplier.show();
+          }
+      }
+      async function handleFormSubmit(type, e) {
+          e.preventDefault();
+          const form = e.target;
+          const id = form.querySelector(`input[type=hidden]`).value;
+          const isEdit = id !== '';
+          let url = isEdit ? `/api/update_${type}/${id}` : `/api/add_${type}`;
+          let method = isEdit ? 'PUT' : 'POST';
+          let payload = {};
+
+          if (type === 'admin') {
+              const password = form.elements['edit-admin-password'].value;
+              if (password && password !== form.elements['edit-admin-password-confirm'].value) return showToast("Password dan konfirmasi tidak cocok.", false);
+              payload = { nama_lengkap: form.elements['edit-admin-nama'].value, nik: form.elements['edit-admin-nik'].value, username: form.elements['edit-admin-username'].value, email: form.elements['edit-admin-email'].value, nomor_kontak: form.elements['edit-admin-kontak'].value, password: password, password_confirm: form.elements['edit-admin-password-confirm'].value };
+          } else if (type === 'lapak') {
+              const anggota_ids = Array.from(form.querySelectorAll('#lapak-anggota-selection input:checked')).map(cb => cb.value);
+              payload = { lokasi: form.elements['edit-lapak-lokasi'].value, user_id: form.elements['lapak-pj-select'].value, anggota_ids };
+          } else if (type === 'supplier') {
+              const password = form.elements['edit-supplier-password'].value;
+              if (password && password !== form.elements['edit-supplier-password-confirm'].value) return showToast("Password dan konfirmasi tidak cocok.", false);
+              payload = { nama_supplier: form.elements['edit-supplier-nama'].value, username: form.elements['edit-supplier-username'].value, kontak: form.elements['edit-supplier-kontak'].value, nomor_register: form.elements['edit-supplier-register'].value, alamat: form.elements['edit-supplier-alamat'].value, password, password_confirm: form.elements['edit-supplier-password-confirm'].value };
+              if (!isEdit) {
+                  payload.products = Array.from(document.querySelectorAll('#product-fields-container .product-entry')).map(p => ({ name: p.querySelector('.product-name').value, harga_beli: p.querySelector('.product-harga-beli').value, harga_jual: p.querySelector('.product-harga-jual').value, }));
+                  payload.lapak_ids = Array.from(document.querySelectorAll('#supplier-lapak-selection input:checked')).map(cb => cb.value);
+              }
+          }
+          
+          const resp = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          const result = await resp.json();
+          showToast(result.message, resp.ok);
+          if (resp.ok) { modals[type].hide(); await populateOwnerDashboard(); }
+      }
+      async function handleDelete(type, id) {
+          if (!confirm(`Apakah Anda yakin ingin menghapus data ini? Tindakan ini tidak dapat dibatalkan.`)) return;
+          const resp = await fetch(`/api/delete_${type}/${id}`, { method: 'DELETE' });
+          const result = await resp.json();
+          showToast(result.message, resp.ok);
+          if (resp.ok) await populateOwnerDashboard();
+      }
+      function addProductField() {
+          const container = document.getElementById('product-fields-container');
+          const newField = document.createElement('div');
+          newField.className = 'row g-2 mb-2 align-items-center product-entry';
+          newField.innerHTML = `<div class="col-sm-4"><input type="text" class="form-control form-control-sm product-name" placeholder="Nama Produk" required></div><div class="col-sm-3"><div class="input-group input-group-sm"><span class="input-group-text">Beli</span><input type="number" class="form-control product-harga-beli" placeholder="Harga Beli" value="8000" required></div></div><div class="col-sm-3"><div class="input-group input-group-sm"><span class="input-group-text">Jual</span><input type="number" class="form-control product-harga-jual" placeholder="Harga Jual" value="10000" required></div></div><div class="col-sm-2"><button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="this.closest('.product-entry').remove()"><i class="bi bi-trash"></i></button></div>`;
+          container.appendChild(newField);
+      }
+      
+      // -- OWNER PEMBAYARAN --
+      async function populatePembayaranPage() {
+          const loadingEl = document.getElementById('pembayaran-content-loading'), tableEl = document.getElementById('pembayaran-content-table');
+          const tableBody = document.getElementById('pembayaran-table-body');
+          loadingEl.style.display = 'block'; tableEl.style.display = 'none';
+          try {
+              const resp = await fetch(`/api/get_pembayaran_data`);
+              const result = await resp.json();
+              if (!result.success) throw new Error(result.message);
+              tableBody.innerHTML = '';
+              if (result.data.length === 0) tableBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Tidak ada tagihan supplier saat ini.</td></tr>';
+              else result.data.forEach(item => {
+                  const canPay = item.total_tagihan >= 20000;
+                  const statusBadge = canPay ? `<span class="badge bg-success">Siap Bayar</span>` : (item.total_tagihan > 0 ? `<span class="badge bg-warning text-dark">Akumulasi</span>` : `<span class="badge bg-light text-dark">Lunas</span>`);
+                  const actionBtn = canPay ? `<button class="btn btn-sm btn-primary" onclick='openPaymentModal(${item.supplier_id}, "${item.nama_supplier}", ${item.total_tagihan})'>Bayar Tagihan</button>` : `<button class="btn btn-sm btn-secondary" disabled>${item.total_tagihan > 0 ? "Dibawah Minimum" : "Lunas"}</button>`;
+                  tableBody.innerHTML += `<tr>
+                      <td>${item.nama_supplier}</td>
+                      <td class="fw-bold">${formatCurrency(item.total_tagihan)}</td>
+                      <td>${statusBadge}</td>
+                      <td>${actionBtn}</td>
+                  </tr>`;
+              });
+              loadingEl.style.display = 'none'; tableEl.style.display = 'block';
+          } catch(e) { showToast(e.message, false); loadingEl.innerHTML = `<div class="alert alert-danger">${e.message}</div>`; }
+      }
+      function openPaymentModal(supplierId, supplierName, amount) {
+          document.getElementById('payment-supplier-id').value = supplierId;
+          document.getElementById('payment-supplier-amount').value = amount;
+          document.getElementById('payment-supplier-name-confirm').textContent = supplierName;
+          document.getElementById('payment-amount-confirm').textContent = formatCurrency(amount);
+          document.getElementById('payment-confirmation-form').reset();
+          modals.payment.show();
+      }
+      async function handlePaymentSubmit(e) {
+          e.preventDefault();
+          const payload = {
+              supplier_id: document.getElementById('payment-supplier-id').value,
+              jumlah_pembayaran: document.getElementById('payment-supplier-amount').value,
+              metode_pembayaran: document.getElementById('payment-method-select').value
+          };
+          const resp = await fetch('/api/submit_pembayaran', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+          const result = await resp.json();
+          showToast(result.message, resp.ok);
+          if(resp.ok) { modals.payment.hide(); await populatePembayaranPage(); await populateOwnerDashboard(); }
+      }
+
+      // --- LAPAK FUNCTIONS ---
+      async function populateBarangMasukTodayList(lapakId) {
+        const listContainer = document.getElementById('barang-masuk-today-list');
+        listContainer.innerHTML = `<div class="text-center p-3"><div class="spinner-border spinner-border-sm text-secondary"></div></div>`;
+        try {
+            const resp = await fetch(`/api/get_barang_masuk_today/${lapakId}`);
+            const result = await resp.json();
+            if (!result.success) throw new Error(result.message);
+            
+            if (result.data.length === 0) {
+                listContainer.innerHTML = `<div class="alert alert-light text-center">Belum ada barang yang diterima hari ini.</div>`;
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'table table-striped table-sm align-middle';
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Waktu</th>
+                        <th>Nama Produk</th>
+                        <th class="text-end">Jumlah</th>
+                        <th class="text-end">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${result.data.map(item => `
+                        <tr>
+                            <td>${item.waktu}</td>
+                            <td>${item.nama_produk}</td>
+                            <td class="text-end">${item.jumlah} Pcs</td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-danger py-0 px-1" onclick="handleDeleteBarangMasuk(${item.id})">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+            listContainer.innerHTML = '';
+            listContainer.appendChild(table);
+
+        } catch (e) {
+            listContainer.innerHTML = `<div class="alert alert-danger">${e.message}</div>`;
+        }
+      }
+
+      async function handleDeleteBarangMasuk(entryId) {
+          if (!confirm('Apakah Anda yakin ingin menghapus data penerimaan barang ini? Stok akan dikembalikan.')) return;
+          try {
+              const resp = await fetch(`/api/delete_barang_masuk/${entryId}`, { method: 'DELETE' });
+              const result = await resp.json();
+              showToast(result.message, resp.ok);
+              if (resp.ok) {
+                  await populateBarangMasukTodayList(AppState.currentUser.user_info.lapak_id);
+              }
+          } catch (e) {
+              showToast('Gagal terhubung ke server.', false);
+          }
+      }
+      
+      async function populateBarangMasukPage() {
+        try {
+            const resp = await fetch(`/api/get_data_lapak/${AppState.currentUser.user_info.lapak_id}`);
+            if(!resp.ok) throw new Error("Gagal memuat data lapak");
+            const data = await resp.json();
+            AppState.lapakData = data;
+            const select = document.getElementById('supplier-select-barang-masuk');
+            select.innerHTML = '<option value="">-- Pilih Sumber Produk --</option>'; 
+            data.suppliers.forEach(s => { select.innerHTML += `<option value="${s.id}">${s.nama_supplier}</option>`; });
+            updateProductListMasuk();
+            await populateBarangMasukTodayList(AppState.currentUser.user_info.lapak_id);
+        } catch (e) { showToast(e.message, false); }
+      }
+
+      function updateProductListMasuk() {
+        const supplierId = document.getElementById('supplier-select-barang-masuk').value;
+        const container = document.getElementById('product-list-container');
+        const header = document.getElementById('product-list-header');
+        const saveBtn = document.getElementById('simpan-penerimaan-btn');
+        container.innerHTML = ''; 
+        if (!supplierId) { header.style.display = 'none'; saveBtn.disabled = true; return; }
+        const products = AppState.lapakData.products_by_supplier[supplierId] || [];
+        if (products.length > 0) { header.style.display = 'block'; saveBtn.disabled = false; } 
+        else { header.style.display = 'none'; saveBtn.disabled = true; container.innerHTML = '<div class="alert alert-warning">Tidak ada produk dari sumber ini.</div>' }
+        products.forEach(p => { container.innerHTML += `<div class="card mb-3"><div class="card-body d-flex align-items-center justify-content-between"><div><h6 class="card-title mb-0">${p.name}</h6></div><div class="input-group" style="width: 150px;"><button class="btn btn-outline-secondary" type="button" onclick="updateQuantity(this, -1)"><i class="bi bi-dash"></i></button><input type="number" class="form-control text-center barang-masuk-item" data-product-id="${p.id}" value="0" min="0"><button class="btn btn-outline-secondary" type="button" onclick="updateQuantity(this, 1)"><i class="bi bi-plus"></i></button></div></div></div>`; });
+      }
+
+      async function handleBarangMasukSubmit(e) {
+        e.preventDefault();
+
+        // 1. Dapatkan referensi tombol dari DOM
+        const saveBtn = document.getElementById('simpan-penerimaan-btn');
+        // Simpan teks asli tombol
+        const originalBtnHTML = saveBtn.innerHTML;
+
+        try {
+            // 2. Nonaktifkan tombol dan tampilkan spinner SEBELUM fetch
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Menyimpan...`;
+
+            const products = Array.from(document.querySelectorAll('.barang-masuk-item')).map(item => ({ id: item.dataset.productId, qty: item.value })).filter(p => p.qty > 0);
+            if (products.length === 0) {
+                showToast("Tidak ada jumlah barang yang diisi.", false);
+                // Kembalikan tombol jika validasi gagal sebelum fetch
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalBtnHTML;
+                return; 
+            }
+            
+            const payload = { lapak_id: AppState.currentUser.user_info.lapak_id, products };
+            const response = await fetch('/api/add_barang_masuk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            const result = await response.json(); 
+            showToast(result.message, response.ok);
+
+            if (response.ok) { 
+              document.getElementById('supplier-select-barang-masuk').value = '';
+              updateProductListMasuk();
+              await populateBarangMasukTodayList(AppState.currentUser.user_info.lapak_id);
+            }
+
+        } catch (error) {
+            // Tangani jika ada error koneksi
+            showToast("Gagal terhubung ke server.", false);
+        } finally {
+            // 3. Apapun hasilnya (sukses/gagal), kembalikan tombol ke kondisi semula
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalBtnHTML;
+        }
+      }
+
+      async function handleAddManualProductSubmit(e) {
+        e.preventDefault();
+        const payload = { lapak_id: AppState.currentUser.user_info.lapak_id, nama_produk: document.getElementById('manual-nama-produk').value, harga_beli: document.getElementById('manual-harga-beli').value, harga_jual: document.getElementById('manual-harga-jual').value, jumlah_stok: document.getElementById('manual-jumlah-stok').value };
+        const response = await fetch('/api/add_manual_product', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const result = await response.json(); showToast(result.message, response.ok);
+        if (response.ok) { e.target.reset(); modals.manualProduct.hide(); await populateBarangMasukPage(); }
+      }
+      async function populateBuatCatatanPage() {
+        const loadingEl = document.getElementById('buat-catatan-loading'), formEl = document.getElementById('buat-catatan-form'), existsEl = document.getElementById('buat-catatan-exists');
+        const container = document.getElementById('catatan-produk-container');
+        loadingEl.style.display = 'block'; formEl.style.display = 'none'; existsEl.style.display = 'none';
+        container.innerHTML = ''; document.getElementById('return-container').innerHTML = '';
+        formEl.reset();
+        try {
+            const resp = await fetch(`/api/get_data_buat_catatan/${AppState.currentUser.user_info.lapak_id}`);
+            const result = await resp.json();
+            if (!resp.ok) {
+              if (resp.status === 409) {
+                loadingEl.style.display = 'none';
+                existsEl.style.display = 'block';
+                return;
+              }
+              throw new Error(result.message || "Gagal memuat data catatan.");
+            }
+            AppState.catatanData.products = result.products;
+            if (AppState.catatanData.products.length === 0) container.innerHTML = '<div class="alert alert-warning m-3">Belum ada produk terdaftar. Silakan tambahkan stok di menu Barang Masuk.</div>';
+            AppState.catatanData.products.forEach(p => {
+                container.innerHTML += `<div class="list-group-item product-catatan-item" data-product-id="${p.id}" data-harga-jual="${p.harga_jual}" data-harga-beli="${p.harga_beli}" data-stok-awal="${p.stok_awal}" data-supplier="${p.supplier_name}"><div class="d-flex w-100 justify-content-between"><h6 class="mb-1">${p.name}</h6><small class="text-muted">Stok Awal: ${p.stok_awal}</small></div><div class="row g-2 mt-2 align-items-center"><div class="col-md-3 col-6"><label class="form-label small">Sisa Akhir</label><input type="number" class="form-control form-control-sm sisa-akhir" placeholder="Pcs" min="0" max="${p.stok_awal}" readonly required></div><div class="col-md-3 col-6"><label class="form-label small">Terjual Cash</label><input type="number" class="form-control form-control-sm terjual-cash" placeholder="Pcs" value="0" min="0" oninput="updateCatatanItem(this.closest('.product-catatan-item'))"></div><div class="col-md-3 col-6"><label class="form-label small">Terjual QRIS</label><input type="number" class="form-control form-control-sm terjual-qris" placeholder="Pcs" value="0" min="0" oninput="updateCatatanItem(this.closest('.product-catatan-item'))"></div><div class="col-md-3 col-6"><label class="form-label small">Terjual BCA</label><input type="number" class="form-control form-control-sm terjual-bca" placeholder="Pcs" value="0" min="0" oninput="updateCatatanItem(this.closest('.product-catatan-item'))"></div></div></div>`;
+            });
+            loadingEl.style.display = 'none'; formEl.style.display = 'block'; updateCatatanTotals();
+        } catch (error) { loadingEl.innerHTML = `<div class="alert alert-danger">${error.message}</div>`; }
+      }
+      function addReturnField() {
+        const container = document.getElementById('return-container');
+        if (AppState.catatanData.products.length === 0) return showToast("Tidak ada produk untuk diretur.", false);
+        const productOptions = AppState.catatanData.products.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+        const newField = document.createElement('div');
+        newField.classList.add('row', 'g-2', 'mb-2', 'align-items-center', 'return-item');
+        newField.innerHTML = `<div class="col-sm-5"><select class="form-select form-select-sm return-product-id" required>${productOptions}</select></div><div class="col-sm-2"><input type="number" class="form-control form-control-sm return-jumlah" placeholder="Jml" min="1" required></div><div class="col-sm-4"><input type="text" class="form-control form-control-sm return-catatan" placeholder="Catatan (opsional)"></div><div class="col-sm-1"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.return-item').remove()"><i class="bi bi-trash"></i></button></div>`;
+        container.appendChild(newField);
+      }
+      function updateCatatanItem(item) {
+        const stokAwal = parseInt(item.dataset.stokAwal);
+        const terjualCash = parseInt(item.querySelector('.terjual-cash').value) || 0;
+        const terjualQris = parseInt(item.querySelector('.terjual-qris').value) || 0;
+        const terjualBca = parseInt(item.querySelector('.terjual-bca').value) || 0;
+        const totalTerjual = terjualCash + terjualQris + terjualBca;
+        const sisaAkhir = stokAwal - totalTerjual;
+        item.querySelector('.sisa-akhir').value = sisaAkhir < 0 ? 0 : sisaAkhir;
+        if (sisaAkhir < 0) {
+            showToast(`Penjualan produk ${item.querySelector('h6').textContent} melebihi stok awal!`, false);
+        }
+        updateCatatanTotals();
+      }
+      function updateCatatanTotals() {
+        let totalPendapatan = 0;
+        let totalBiaya = 0;
+        document.querySelectorAll('.product-catatan-item').forEach(item => {
+            const hargaJual = parseFloat(item.dataset.hargaJual);
+            const hargaBeli = parseFloat(item.dataset.hargaBeli);
+            const terjualCash = parseInt(item.querySelector('.terjual-cash').value) || 0;
+            const terjualQris = parseInt(item.querySelector('.terjual-qris').value) || 0;
+            const terjualBca = parseInt(item.querySelector('.terjual-bca').value) || 0;
+            const totalTerjual = terjualCash + terjualQris + terjualBca;
+            totalPendapatan += totalTerjual * hargaJual;
+            totalBiaya += totalTerjual * hargaBeli;
+        });
+        document.getElementById('auto-total-pendapatan').textContent = formatCurrency(totalPendapatan);
+        document.getElementById('auto-total-biaya').textContent = formatCurrency(totalBiaya);
+      }
+      async function handleBuatCatatanSubmit(e) {
+        e.preventDefault();
+        const productData = Array.from(document.querySelectorAll('.product-catatan-item')).map(item => ({ id: item.dataset.productId, stok_awal: item.dataset.stokAwal, sisa_akhir: item.querySelector('.sisa-akhir').value, terjual_cash: item.querySelector('.terjual-cash').value, terjual_qris: item.querySelector('.terjual-qris').value, terjual_bca: item.querySelector('.terjual-bca').value }));
+        const returnData = Array.from(document.querySelectorAll('.return-item')).map(item => ({ product_id: item.querySelector('.return-product-id').value, jumlah: item.querySelector('.return-jumlah').value, catatan: item.querySelector('.return-catatan').value }));
+        const rekapManualData = { uang_pertama: document.getElementById('manual-uang-pertama').value, total_barang: document.getElementById('manual-total-barang').value, total_cash: document.getElementById('manual-total-cash').value, total_qris: document.getElementById('manual-total-qris').value, total_bca: document.getElementById('manual-total-bca').value, total_uang: document.getElementById('manual-total-uang').value };
+        const payload = { lapak_id: AppState.currentUser.user_info.lapak_id, uang_pertama: document.getElementById('uang-pertama').value, products: productData, returns: returnData, rekap_manual: rekapManualData };
+        const response = await fetch('/api/submit_catatan_harian', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const result = await response.json(); showToast(result.message, response.ok);
+        if (response.ok) showPage('lapak-dashboard');
+      }
+      async function populateHistoryLaporanPage() {
+        const loadingEl = document.getElementById('history-loading'),
+          listEl = document.getElementById('history-list');
+        loadingEl.style.display = 'block';
+        listEl.innerHTML = '';
+        const resp = await fetch(`/api/get_history_laporan/${AppState.currentUser.user_info.lapak_id}`);
+        if (!resp.ok) {
+          loadingEl.innerHTML = '<div class="alert alert-danger">Gagal memuat histori.</div>';
+          return;
+        }
+        const result = await resp.json();
+        loadingEl.style.display = 'none';
+        if (result.reports.length === 0) {
+          listEl.innerHTML = '<div class="alert alert-info">Belum ada laporan yang dibuat.</div>';
+          return;
+        }
+        result.reports.forEach(r => {
+          const statusBadge = r.status === 'Terkonfirmasi' ? '<span class="badge bg-success">Terkonfirmasi</span>' : '<span class="badge bg-warning text-dark">Menunggu Konfirmasi</span>';
+          listEl.innerHTML += `<div class="list-group-item"><div class="d-flex w-100 justify-content-between"><h5 class="mb-1">${new Date(r.tanggal).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h5>${statusBadge}</div><p class="mb-1">Total pendapatan: <strong>${formatCurrency(r.total_pendapatan)}</strong></p><small>Total produk terjual: ${r.total_produk_terjual} Pcs.</small></div>`;
+        });
+      }
+      function updateQuantity(button, amount) {
+        const input = button.parentNode.querySelector('input[type=number]');
+        let currentValue = parseInt(input.value) || 0;
+        currentValue += amount;
+        if (currentValue < 0) currentValue = 0;
+        input.value = currentValue;
+      }
+      
+      // --- SUPPLIER FUNCTIONS ---
+      async function populateSupplierDashboard() {
+        try {
+            const supplierId = AppState.currentUser.user_info.supplier_id;
+            const resp = await fetch(`/api/get_data_supplier/${supplierId}`);
+            if (!resp.ok) throw new Error("Gagal mengambil data dashboard supplier");
+            const result = await resp.json();
+            
+            if (result.success) {
+                document.getElementById("supplier-total-tagihan").textContent = formatCurrency(result.summary.total_tagihan);
+                document.getElementById("supplier-penjualan-bulan-ini").textContent = formatCurrency(result.summary.penjualan_bulan_ini);
+            } else {
+                throw new Error(result.message);
+            }
+        } catch(error) {
+            showToast(error.message || "Gagal memuat data dashboard.", false);
+            document.getElementById("supplier-total-tagihan").textContent = "Error";
+            document.getElementById("supplier-penjualan-bulan-ini").textContent = "Error";
+        }
+      }
+      
+      async function populateSupplierHistoryPage() {
+        const loadingEl = document.getElementById('supplier-history-loading'),
+              contentEl = document.getElementById('supplier-history-content'),
+              salesBody = document.getElementById('supplier-sales-history-body'),
+              paymentsBody = document.getElementById('supplier-payment-history-body');
+
+        loadingEl.style.display = 'block';
+        contentEl.style.display = 'none';
+
+        try {
+            const resp = await fetch(`/api/get_supplier_history/${AppState.currentUser.user_info.supplier_id}`);
+            const result = await resp.json();
+            if (!result.success) throw new Error(result.message);
+
+            if (result.payments.length === 0) {
+                paymentsBody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">Belum ada pembayaran.</td></tr>`;
+            } else {
+                paymentsBody.innerHTML = result.payments.map(p => `
+                    <tr>
+                        <td>${new Date(p.tanggal + 'T00:00:00').toLocaleDateString('id-ID')}</td>
+                        <td>${formatCurrency(p.jumlah)}</td>
+                        <td><span class="badge bg-info">${p.metode}</span></td>
+                    </tr>
+                `).join('');
+            }
+
+            if (result.sales.length === 0) {
+                salesBody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">Belum ada penjualan.</td></tr>`;
+            } else {
+                salesBody.innerHTML = result.sales.map(s => `
+                    <tr>
+                        <td>${new Date(s.tanggal + 'T00:00:00').toLocaleDateString('id-ID')}</td>
+                        <td>${s.lokasi}</td>
+                        <td>${s.nama_produk}</td>
+                        <td>${s.terjual} Pcs</td>
+                        <td class="text-end">${formatCurrency(s.total_harga_beli)}</td>
+                    </tr>
+                `).join('');
+            }
+
+            loadingEl.style.display = 'none';
+            contentEl.style.display = 'block';
+
+        } catch (e) {
+            loadingEl.innerHTML = `<div class="alert alert-danger">${e.message}</div>`;
+        }
+      }
+
+      // --- APP INITIALIZATION ---
+      document.addEventListener("DOMContentLoaded", () => {
+        modals.admin = new bootstrap.Modal(document.getElementById('edit-admin-modal'));
+        modals.lapak = new bootstrap.Modal(document.getElementById('edit-lapak-modal'));
+        modals.supplier = new bootstrap.Modal(document.getElementById('edit-supplier-modal'));
+        modals.manualProduct = new bootstrap.Modal(document.getElementById('add-manual-product-modal'));
+        modals.payment = new bootstrap.Modal(document.getElementById('payment-confirmation-modal'));
+        modals.reportDetail = new bootstrap.Modal(document.getElementById('report-detail-modal'));
+        
+        const todayISO = new Date().toISOString().split("T")[0];
+        ['laporan-pendapatan-datepicker', 'laporan-biaya-datepicker'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = todayISO; });
+        
+        document.getElementById('login-form').addEventListener('submit', handleLogin);
+        document.getElementById('barang-masuk-form')?.addEventListener('submit', handleBarangMasukSubmit);
+        document.getElementById('add-manual-product-form')?.addEventListener('submit', handleAddManualProductSubmit);
+        document.getElementById('buat-catatan-form')?.addEventListener('submit', handleBuatCatatanSubmit);
+        document.getElementById('edit-admin-form').addEventListener('submit', (e) => handleFormSubmit('admin', e));
+        document.getElementById('edit-lapak-form').addEventListener('submit', (e) => handleFormSubmit('lapak', e));
+        document.getElementById('edit-supplier-form').addEventListener('submit', (e) => handleFormSubmit('supplier', e));
+        document.getElementById('payment-confirmation-form').addEventListener('submit', handlePaymentSubmit);
+        document.getElementById('laporan-pendapatan-datepicker').addEventListener('change', populateLaporanPendapatan);
+        document.getElementById('laporan-biaya-datepicker').addEventListener('change', populateLaporanBiaya);
+        
+        handleAuthRouting(); 
+        updateDate();
+      });
+    </script>
+  </body>
+</html>
+
