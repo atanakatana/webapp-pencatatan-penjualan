@@ -1,0 +1,134 @@
+{% extends "base.html" %} {% block content %}
+
+<main id="lapak-pages">
+  <div id="lapak-dashboard" class="page container py-4">
+    <header class="d-flex justify-content-between align-items-center pb-3 mb-4 border-bottom">
+      <div>
+        <h4 class="mb-0">Laporan Harian, <span id="lapak-name"></span>!</h4>
+        <p class="text-muted mb-0 small" id="current-date-lapak"></p>
+      </div>
+      <button class="btn btn-outline-danger" onclick="handleLogout()">
+        <i class="bi bi-box-arrow-right"></i> Logout
+      </button>
+    </header>
+
+    <div id="laporan-loading" class="text-center p-5">
+      <div class="spinner-border text-primary"></div>
+      <p class="mt-2 text-muted">Memuat data...</p>
+    </div>
+    <div id="laporan-exists" class="alert alert-warning text-center" style="display: none">
+      Laporan untuk hari ini sudah dibuat. Silakan lihat di menu History.
+    </div>
+
+    <div id="laporan-content" style="display: none">
+      <div class="row g-3 mb-4">
+        <div class="col-6">
+          <div class="card menu-card h-100" onclick="openAturProdukModal()">
+            <div class="card-body text-center p-3">
+              <i class="bi bi-ui-checks-grid text-primary" style="font-size: 2rem"></i>
+              <p class="card-title mt-2 mb-0 fw-bold small">Atur Produk</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="card menu-card h-100" onclick="showPage('history-laporan-page')">
+            <div class="card-body text-center p-3">
+              <i class="bi bi-clock-history text-secondary" style="font-size: 2rem"></i>
+              <p class="card-title mt-2 mb-0 fw-bold small">History Laporan</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="product-search-container" class="mb-3" style="display: none">
+        <input type="text" id="product-search-input" class="form-control" placeholder="Cari produk atau supplier..." />
+      </div>
+
+      <div id="report-tables-container">
+        <div id="initial-prompt" class="text-center text-muted p-5 border rounded">
+          <i class="bi bi-ui-checks-grid" style="font-size: 3rem"></i>
+          <h5 class="mt-3">Mulai Laporan Harian</h5>
+          <p>
+            Klik "Atur Produk" di atas untuk memilih produk yang akan dijual
+            hari ini.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="history-laporan-page" class="page container py-4">
+    <header class="d-flex align-items-center pb-3 mb-4 border-bottom">
+      <button class="btn btn-light me-3" onclick="showPage('lapak-dashboard')">
+        <i class="bi bi-arrow-left"></i>
+      </button>
+      <h4 class="mb-0">History Laporan</h4>
+    </header>
+    <div id="history-loading" class="text-center p-5">
+      <div class="spinner-border text-primary"></div>
+    </div>
+    <div id="history-list" class="list-group"></div>
+  </div>
+</main>
+
+<div id="rekap-footer" class="sticky-footer" style="display: none">
+  <div class="text-end p-1 bg-light border-bottom">
+    <div id="footer-handle" class="text-center p-1 bg-light border-bottom" style="cursor: pointer">
+      <i id="footer-toggle-icon" class="bi bi-chevron-down" style="font-size: 1.2rem"></i>
+    </div>
+  </div>
+  <div class="p-2 border-bottom">
+    <button id="toggle-rekap-btn" class="btn btn-light w-100 d-flex justify-content-between align-items-center"
+      type="button" data-bs-toggle="collapse" data-bs-target="#rekap-manual-collapse" aria-expanded="false"
+      aria-controls="rekap-manual-collapse">
+      <span id="toggle-rekap-text">Input Hasil Penjualan</span>
+      <i id="toggle-rekap-icon" class="bi bi-chevron-up"></i>
+    </button>
+  </div>
+  <div class="collapse" id="rekap-manual-collapse">
+    <div class="p-3">
+      <h6><i class="bi bi-cash-stack"></i> Hasil Penjualan (Input Manual)</h6>
+      <div class="input-group input-group-sm mb-2">
+        <span class="input-group-text" style="width: 60px">QRIS</span>
+        <span class="input-group-text">Rp</span>
+        <input type="text" class="form-control rekap-input" id="rekap-qris" placeholder="0" inputmode="numeric" />
+      </div>
+      <div class="input-group input-group-sm mb-2">
+        <span class="input-group-text" style="width: 60px">BCA</span>
+        <span class="input-group-text">Rp</span>
+        <input type="text" class="form-control rekap-input" id="rekap-bca" placeholder="0" inputmode="numeric" />
+      </div>
+      <div class="input-group input-group-sm">
+        <span class="input-group-text" style="width: 60px">CASH</span>
+        <span class="input-group-text">Rp</span>
+        <input type="text" class="form-control rekap-input" id="rekap-cash" placeholder="0" inputmode="numeric" />
+      </div>
+    </div>
+  </div>
+  <div class="p-3 bg-light">
+    <div class="row g-3 align-items-center">
+      <div class="col-md-8">
+        <div class="d-flex justify-content-between">
+          <span>Total (dari Tabel):</span>
+          <strong id="total-sistem">Rp 0</strong>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span>Total (dari Input):</span>
+          <strong id="total-manual">Rp 0</strong>
+        </div>
+        <hr class="my-2 d-md-none" />
+        <div id="reconciliation-warning" class="alert alert-danger p-2 text-center small mt-2" style="display: none">
+          <i class="bi bi-exclamation-triangle-fill"></i> Total tidak sesuai!
+          Cek kembali.
+        </div>
+      </div>
+      <div class="col-md-4 d-grid">
+        <button id="kirim-laporan-btn" class="btn btn-primary btn-lg" disabled>
+          <i class="bi bi-send-fill"></i> Kirim Laporan
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
