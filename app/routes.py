@@ -1,6 +1,6 @@
-from flask import render_template, jsonify, request, session, redirect, url_for
-from app import app, db
-from app.models import Admin, Supplier, Lapak, Product, StokHarian, LaporanHarian, LaporanHarianProduk, SupplierBalance, PembayaranSupplier, HARGA_BELI_DEFAULT, HARGA_JUAL_DEFAULT
+from flask import render_template, jsonify, request, session, redirect, url_for, current_app as app
+from . import db  # Titik (.) berarti impor dari paket saat ini (app)
+from .models import Admin, Supplier, Lapak, Product, StokHarian, LaporanHarian, LaporanHarianProduk, SupplierBalance, PembayaranSupplier, HARGA_BELI_DEFAULT, HARGA_JUAL_DEFAULT
 import datetime
 import re
 from datetime import timedelta
@@ -768,6 +768,24 @@ def get_data_buat_catatan(lapak_id):
         
     return jsonify({"success": True, "data": suppliers_data})
 
+@app.route('/api/search_suppliers')
+def search_suppliers():
+    """Endpoint untuk autocomplete pencarian supplier."""
+    query = request.args.get('q', '').lower()
+    if not query:
+        return jsonify([])
+
+    # Cari supplier yang namanya mengandung query
+    suppliers = Supplier.query.filter(
+        Supplier.nama_supplier.ilike(f'%{query}%')
+    ).limit(5).all()
+
+    # Format hasilnya untuk frontend
+    results = [
+        {"id": s.id, "nama_supplier": s.nama_supplier} for s in suppliers
+    ]
+    return jsonify(results)
+
 @app.route('/api/submit_catatan_harian', methods=['POST'])
 def submit_catatan_harian():
     data = request.json
@@ -790,31 +808,56 @@ def submit_catatan_harian():
         db.session.add(new_report)
         db.session.flush()
         for prod_data in data.get('products', []):
-            product_id = prod_data.get('id')
             stok_awal = int(prod_data.get('stok_awal') or 0)
             stok_akhir = int(prod_data.get('stok_akhir') or 0)
             if stok_awal == 0 and stok_akhir == 0: continue
             
-            if not product_id:
-                if prod_data.get('nama_produk'):
-                    lapak = Lapak.query.get(lapak_id)
-                    new_product = Product(nama_produk=prod_data['nama_produk'],
-                        supplier_id=prod_data.get('supplier_id') if str(prod_data.get('supplier_id')).lower() != 'manual' else None,
-                        harga_beli=HARGA_BELI_DEFAULT, harga_jual=HARGA_JUAL_DEFAULT, is_manual=True)
-                    new_product.lapaks.append(lapak)
-                    db.session.add(new_product)
-                    db.session.flush()
-                    product_id = new_product.id
-                else: continue 
-
-            product = Product.query.get(product_id)
-            if not product: continue
+            supplier_name = prod_data.get('supplier_name', '').strip()
+            product_name = prod_data.get('nama_produk', '').strip()
             
+            if not supplier_name or not product_name:
+                continue # Lewati jika data tidak lengkap
+
+            # 1. Logika "Cari atau Buat" untuk Supplier
+            supplier = Supplier.query.filter(func.lower(Supplier.nama_supplier) == supplier_name.lower()).first()
+            if not supplier:
+                supplier = Supplier(
+                    nama_supplier=supplier_name,
+                    username=supplier_name.lower().replace(" ", "_") + str(random.randint(10, 99)),
+                    password="dibuatotomatis" # Default password
+                )
+                supplier.balance = SupplierBalance(balance=0.0)
+                db.session.add(supplier)
+                db.session.flush() # flush() untuk mendapatkan ID supplier baru
+
+            # 2. Logika "Cari atau Buat" untuk Produk
+            product = Product.query.filter(
+                func.lower(Product.nama_produk) == product_name.lower(),
+                Product.supplier_id == supplier.id
+            ).first()
+            if not product:
+                product = Product(
+                    nama_produk=product_name,
+                    supplier_id=supplier.id,
+                    # Harga default sudah diatur di model
+                )
+                db.session.add(product)
+                db.session.flush() # flush() untuk mendapatkan ID produk baru
+
+            # 3. Logika penyimpanan rincian (tetap sama)
             jumlah_terjual = max(0, stok_awal - stok_akhir)
             total_harga_jual = jumlah_terjual * product.harga_jual
             total_harga_beli = jumlah_terjual * product.harga_beli
 
-            rincian = LaporanHarianProduk(laporan_id=new_report.id, product_id=product.id, stok_awal=stok_awal, stok_akhir=stok_akhir, jumlah_terjual=jumlah_terjual, total_harga_jual=total_harga_jual, total_harga_beli=total_harga_beli)
+            rincian = LaporanHarianProduk(
+                laporan_id=new_report.id,
+                product_id=product.id,
+                stok_awal=stok_awal,
+                stok_akhir=stok_akhir,
+                jumlah_terjual=jumlah_terjual,
+                total_harga_jual=total_harga_jual,
+                total_harga_beli=total_harga_beli
+            )
             db.session.add(rincian)
             db.session.add(StokHarian(lapak_id=lapak_id, product_id=product.id, jumlah_sisa=stok_akhir, tanggal=today))
             total_pendapatan_auto += total_harga_jual

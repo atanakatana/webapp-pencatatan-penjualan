@@ -1131,176 +1131,148 @@ async function handlePaymentSubmit(e) {
   }
 }
 
+// --- Variabel untuk debounce pencarian supplier ---
+let searchTimeout;
+
+function setupLapakInputListeners() {
+    const supplierInput = document.getElementById('supplier-name-input');
+    const suggestionsContainer = document.getElementById('supplier-suggestions');
+    const addProductForm = document.getElementById('add-product-form');
+
+    // 1. Event listener untuk input supplier (dengan debounce)
+    supplierInput.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        const query = supplierInput.value;
+        if (query.length < 2) {
+            suggestionsContainer.innerHTML = '';
+            return;
+        }
+        searchTimeout = setTimeout(async () => {
+            const response = await fetch(`/api/search_suppliers?q=${query}`);
+            const suppliers = await response.json();
+            let suggestionsHTML = '';
+            suppliers.forEach(s => {
+                suggestionsHTML += `<a href="#" class="list-group-item list-group-item-action" data-supplier-name="${s.nama_supplier}">${s.nama_supplier}</a>`;
+            });
+            suggestionsContainer.innerHTML = suggestionsHTML;
+        }, 300); // Tunggu 300ms setelah user berhenti mengetik
+    });
+
+    // 2. Event listener untuk memilih saran supplier
+    suggestionsContainer.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (e.target.classList.contains('list-group-item')) {
+            supplierInput.value = e.target.dataset.supplierName;
+            suggestionsContainer.innerHTML = '';
+            document.getElementById('product-name-input').focus();
+        }
+    });
+
+    // 3. Event listener untuk submit form tambah produk
+    addProductForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const supplierName = supplierInput.value.trim();
+        const productName = document.getElementById('product-name-input').value.trim();
+
+        if (supplierName && productName) {
+            addProductToReportTable(supplierName, productName);
+            addProductForm.reset();
+            supplierInput.focus();
+        }
+    });
+
+    // Sembunyikan suggestions jika klik di luar
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#supplier-name-input')) {
+            suggestionsContainer.innerHTML = '';
+        }
+    });
+}
+
+function addProductToReportTable(supplierName, productName) {
+    const tableBody = document.getElementById('report-table-body');
+    const noDataRow = document.getElementById('no-data-row');
+
+    // Hilangkan pesan "Belum ada data" jika ada
+    if (noDataRow) noDataRow.remove();
+
+    const rowCount = tableBody.rows.length + 1;
+    
+    // Cek apakah produk dari supplier yang sama sudah ada
+    const existingRow = Array.from(tableBody.rows).find(row => 
+        row.dataset.supplierName.toLowerCase() === supplierName.toLowerCase() && 
+        row.dataset.productName.toLowerCase() === productName.toLowerCase()
+    );
+
+    if (existingRow) {
+        showToast("Produk tersebut sudah ada di dalam laporan.", false);
+        existingRow.querySelector('.stok-awal').focus();
+        return;
+    }
+
+    const row = tableBody.insertRow();
+    row.className = 'product-row';
+    row.dataset.supplierName = supplierName;
+    row.dataset.productName = productName;
+    // Harga jual dan beli diambil dari backend saat submit,
+    // tapi kita gunakan default untuk tampilan di frontend
+    row.dataset.hargaJual = 10000;
+    row.dataset.hargaBeli = 8000;
+
+    const stokInput = (className) => `
+        <div class="input-group input-group-sm">
+            <input type="number" class="form-control text-center ${className}" placeholder="0" min="0" inputmode="numeric">
+        </div>`;
+
+    row.innerHTML = `
+        <td class="text-center">${rowCount}</td>
+        <td>
+            <strong>${productName}</strong><br>
+            <small class="text-muted">${supplierName}</small>
+        </td>
+        <td>${stokInput("stok-awal")}</td>
+        <td>${stokInput("stok-akhir")}</td>
+        <td class="text-center fw-bold terjual-pcs">0</td>
+        <td class="text-end fw-bold pendapatan-rp">${formatCurrency(0)}</td>
+        <td class="text-center">
+            <button class="btn btn-sm btn-outline-danger btn-action" onclick="removeProductRow(this)">
+                <i class="bi bi-trash-fill"></i>
+            </button>
+        </td>
+    `;
+
+    attachEventListenersToRow(row);
+    updateGrandTotals();
+}
+
+function removeProductRow(button) {
+    const row = button.closest('tr');
+    row.remove();
+    // Update nomor urut
+    const tableBody = document.getElementById('report-table-body');
+    Array.from(tableBody.rows).forEach((r, index) => {
+        r.cells[0].textContent = index + 1;
+    });
+    // Tampilkan pesan jika tabel kosong
+    if(tableBody.rows.length === 0) {
+        tableBody.innerHTML = `<tr id="no-data-row"><td colspan="7" class="text-center text-muted p-4">Belum ada produk yang ditambahkan ke laporan hari ini.</td></tr>`;
+    }
+    updateGrandTotals();
+}
+
 // --- LAPAK FUNCTIONS ---
 // PERUBAHAN 4: Modifikasi fungsi populateLapakDashboard
 // Fungsi untuk membuka modal "Atur Produk"
-async function openAturProdukModal() {
-  const supplierContainer = document.getElementById(
-    "supplier-selection-container"
-  );
-  supplierContainer.innerHTML =
-    '<div class="spinner-border spinner-border-sm"></div>';
 
-  // Kosongkan pilihan produk di awal
-  document.getElementById("product-selection-container").innerHTML =
-    '<p class="text-muted">Pilih supplier untuk melihat produk.</p>';
-
-  modals.aturProduk.show();
-
-  try {
-    const resp = await fetch(
-      `/api/get_data_buat_catatan/${AppState.currentUser.user_info.lapak_id}`
-    );
-    const result = await resp.json();
-    if (!result.success) throw new Error(result.message);
-
-    AppState.masterProduk = result.data; // Simpan master data
-
-    supplierContainer.innerHTML = AppState.masterProduk
-      .map(
-        (s) => `
-                <div class="form-check">
-                    <input class="form-check-input supplier-checkbox" type="checkbox" value="${s.id}" id="sup-${s.id}">
-                    <label class="form-check-label" for="sup-${s.id}">${s.name}</label>
-                </div>
-            `
-      )
-      .join("");
-
-    // Tambahkan event listener ke setiap checkbox supplier
-    document.querySelectorAll(".supplier-checkbox").forEach((cb) => {
-      cb.addEventListener("change", updateProductSelection);
-    });
-  } catch (e) {
-    supplierContainer.innerHTML = `<div class="alert alert-danger p-2 small">${e.message}</div>`;
-  }
-}
 
 // Fungsi untuk memperbarui daftar produk berdasarkan supplier yang dipilih
-function updateProductSelection() {
-  const productContainer = document.getElementById(
-    "product-selection-container"
-  );
-  const selectedSupplierIds = Array.from(
-    document.querySelectorAll(".supplier-checkbox:checked")
-  ).map((cb) => parseInt(cb.value));
 
-  if (selectedSupplierIds.length === 0) {
-    productContainer.innerHTML =
-      '<p class="text-muted">Pilih supplier untuk melihat produk.</p>';
-    return;
-  }
-
-  let productsHtml = "";
-  AppState.masterProduk.forEach((supplier) => {
-    if (selectedSupplierIds.includes(supplier.id)) {
-      productsHtml += `<h6 class="mt-3 text-primary">${supplier.name}</h6>`;
-      supplier.products.forEach((product) => {
-        productsHtml += `
-                        <div class="form-check">
-                            <input class="form-check-input product-checkbox" type="checkbox" value="${product.id}" id="prod-${product.id}">
-                            <label class="form-check-label" for="prod-${product.id}">${product.name}</label>
-                        </div>
-                    `;
-      });
-    }
-  });
-  productContainer.innerHTML = productsHtml;
-}
 
 // Fungsi untuk membuat tabel laporan berdasarkan produk yang dipilih
-function generateReportTables() {
-  const container = document.getElementById("report-tables-container");
-  const selectedProductIds = Array.from(
-    document.querySelectorAll(".product-checkbox:checked")
-  ).map((cb) => parseInt(cb.value));
 
-  if (selectedProductIds.length === 0) {
-    showToast("Pilih setidaknya satu produk.", false);
-    return;
-  }
-
-  // Kelompokkan produk yang dipilih berdasarkan suppliernya
-  const productsBySupplier = {};
-  AppState.masterProduk.forEach((supplier) => {
-    supplier.products.forEach((product) => {
-      if (selectedProductIds.includes(product.id)) {
-        if (!productsBySupplier[supplier.name]) {
-          productsBySupplier[supplier.name] = { info: supplier, products: [] };
-        }
-        productsBySupplier[supplier.name].products.push(product);
-      }
-    });
-  });
-
-  // Buat HTML untuk setiap tabel supplier
-  let tablesHtml = "";
-  let itemCounter = 1;
-  Object.keys(productsBySupplier).forEach((supplierName) => {
-    const supplierData = productsBySupplier[supplierName];
-    tablesHtml += `
-                <div class="supplier-table-group">
-                    <h5 class="mt-4">${supplierName}</h5>
-                    <div class="table-responsive mb-4">
-                        <table class="table table-bordered table-hover align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="width: 5%">#</th><th>Produk</th><th style="width: 15%">Stok Awal</th>
-                                    <th style="width: 15%">Stok Akhir</th><th class="text-center">Terjual</th>
-                                    <th class="text-end">Pendapatan</th><th class="text-end">Biaya</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-            `;
-    supplierData.products.forEach((product) => {
-      tablesHtml += createProductRow(
-        itemCounter++,
-        product.id,
-        product.name,
-        supplierName,
-        null,
-        product.harga_jual,
-        product.harga_beli,
-        null
-      );
-    });
-    tablesHtml += `</tbody></table></div></div>`;
-  });
-
-  container.innerHTML = tablesHtml;
-  document.getElementById("product-search-container").style.display = "block"; // Tampilkan search bar
-  attachAllEventListeners(); // Pasang event listener ke baris-baris baru
-  updateGrandTotals();
-  modals.aturProduk.hide();
-}
 
 // Fungsi untuk filter/pencarian
-function filterReportTables() {
-  const searchTerm = document
-    .getElementById("product-search-input")
-    .value.toLowerCase();
-  document.querySelectorAll(".product-row").forEach((row) => {
-    const supplierName = row
-      .querySelector(".product-supplier-info small")
-      .textContent.toLowerCase();
-    const productName = row
-      .querySelector(".product-supplier-info strong")
-      .textContent.toLowerCase();
-    if (productName.includes(searchTerm) || supplierName.includes(searchTerm)) {
-      row.style.display = "";
-    } else {
-      row.style.display = "none";
-    }
-  });
-  // Sembunyikan judul supplier jika semua produknya tersembunyi
-  document.querySelectorAll(".supplier-table-group").forEach((group) => {
-    const rows = group.querySelectorAll("tbody tr");
-    const visibleRows = Array.from(rows).filter(
-      (row) => row.style.display !== "none"
-    );
-    group.style.display = visibleRows.length > 0 ? "" : "none";
-  });
-}
+
 
 async function populateLapakDashboard() {
   const loadingEl = document.getElementById("laporan-loading"),
@@ -1310,24 +1282,24 @@ async function populateLapakDashboard() {
   loadingEl.style.display = "block";
   contentEl.style.display = "none";
   existsEl.style.display = "none";
-  document.getElementById("report-tables-container").innerHTML = `
-            <div id="initial-prompt" class="text-center text-muted p-5 border rounded">
-                <i class="bi bi-ui-checks-grid" style="font-size: 3rem;"></i><h5 class="mt-3">Mulai Laporan Harian</h5>
-                <p>Klik "Atur Produk" di atas untuk memilih produk yang akan dijual hari ini.</p>
-            </div>`;
-  document.getElementById("product-search-container").style.display = "none";
+
+  // Reset tabel laporan
+  const tableBody = document.getElementById('report-table-body');
+  if(tableBody) {
+      tableBody.innerHTML = `<tr id="no-data-row"><td colspan="7" class="text-center text-muted p-4">Belum ada produk yang ditambahkan ke laporan hari ini.</td></tr>`;
+  }
+  updateGrandTotals(); // Reset total
 
   try {
-    // API dipanggil untuk mengecek apakah laporan hari ini sudah ada
-    const resp = await fetch(
-      `/api/get_data_buat_catatan/${AppState.currentUser.user_info.lapak_id}`
-    );
-    if (!resp.ok && resp.status === 409) {
-      existsEl.style.display = "block";
-      document.getElementById("rekap-footer").style.display = "none";
-    } else {
-      contentEl.style.display = "block";
-    }
+      const resp = await fetch(`/api/get_data_buat_catatan/${AppState.currentUser.user_info.lapak_id}`);
+      if (!resp.ok && resp.status === 409) {
+          existsEl.style.display = "block";
+          document.getElementById("rekap-footer").style.display = "none";
+      } else {
+          contentEl.style.display = "block";
+          // Panggil fungsi untuk mengaktifkan listener di form baru
+          setupLapakInputListeners();
+      }
   } catch (error) {
     loadingEl.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
   } finally {
@@ -1485,13 +1457,8 @@ function updateGrandTotals() {
   });
 
   // Update baris total di dalam tfoot
-  document.getElementById("total-stok-awal").textContent = totalAwal;
-  document.getElementById("total-stok-akhir").textContent = totalAkhir;
-  document.getElementById("total-terjual").textContent = `${totalTerjual}`;
-  document.getElementById("total-pendapatan").textContent =
-    formatCurrency(totalPendapatan);
-  document.getElementById("total-biaya-supplier").textContent =
-    formatCurrency(totalBiaya);
+  document.getElementById("total-terjual").textContent = totalTerjual;
+  document.getElementById("total-pendapatan").textContent = formatCurrency(totalPendapatan);
 
   // Update footer rekapitulasi (logika yang sudah ada)
   document.getElementById("total-sistem").textContent =
@@ -1583,35 +1550,21 @@ async function handleKirimLaporan() {
   let hasError = false;
 
   // Mengambil data dari SEMUA baris di kedua tabel (utama & manual)
-  document.querySelectorAll(".product-row").forEach((row) => {
-    const stokAwal = row.querySelector(".stok-awal").value;
-    const stokAkhir = row.querySelector(".stok-akhir").value;
+  document.querySelectorAll("#report-table-body .product-row").forEach((row) => {
+      const stokAwal = row.querySelector(".stok-awal").value;
+      const stokAkhir = row.querySelector(".stok-akhir").value;
 
-    // Hanya kirim data yang diisi (stok awal atau akhir > 0)
-    if (stokAwal > 0 || stokAkhir > 0) {
-      let productEntry = {
-        id: row.dataset.productId ? parseInt(row.dataset.productId) : null,
-        stok_awal: parseInt(stokAwal) || 0,
-        stok_akhir: parseInt(stokAkhir) || 0,
-      };
-
-      // Jika produk tidak punya ID, berarti ini produk manual.
-      // Kita perlu mengambil nama dan info suppliernya dari baris tabel.
-      if (!productEntry.id) {
-        const productNameText = row.querySelector("strong")?.textContent;
-        if (!productNameText) {
-          showToast("Nama produk manual tidak boleh kosong.", false);
-          hasError = true;
-          return;
-        }
-        productEntry.nama_produk = productNameText;
-
-        if (row.dataset.supplierId) {
-          productEntry.supplier_id = parseInt(row.dataset.supplierId);
-        }
+      // Hanya kirim data yang diisi
+      if (stokAwal > 0 || stokAkhir > 0) {
+          let productEntry = {
+              // Kirim NAMA, bukan ID. Backend akan menanganinya.
+              supplier_name: row.dataset.supplierName,
+              product_name: row.dataset.productName,
+              stok_awal: parseInt(stokAwal) || 0,
+              stok_akhir: parseInt(stokAkhir) || 0,
+          };
+          productData.push(productEntry);
       }
-      productData.push(productEntry);
-    }
   });
 
   if (hasError) return;

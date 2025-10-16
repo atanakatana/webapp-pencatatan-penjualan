@@ -24,51 +24,100 @@
       <div class="row g-3 mb-4">
         <div class="col-6">
           <div class="card menu-card h-100" onclick="openAturProdukModal()">
-            <div class="card-body text-center p-3">
-              <i class="bi bi-ui-checks-grid text-primary" style="font-size: 2rem"></i>
-              <p class="card-title mt-2 mb-0 fw-bold small">Atur Produk</p>
-            </div>
           </div>
         </div>
         <div class="col-6">
           <div class="card menu-card h-100" onclick="showPage('history-laporan-page')">
-            <div class="card-body text-center p-3">
+          </div>
+        </div>
+      </div>
+      <div id="product-search-container" class="mb-3" style="display: none;">
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-md-8">
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <h5 class="card-title">Tambah Produk ke Laporan</h5>
+              <form id="add-product-form" class="row g-3 align-items-end">
+                <div class="col-sm-5">
+                  <label for="supplier-name-input" class="form-label">Nama Supplier</label>
+                  <input type="text" class="form-control" id="supplier-name-input" placeholder="Ketik untuk mencari..."
+                    autocomplete="off" required>
+                  <div id="supplier-suggestions" class="list-group position-absolute"
+                    style="z-index: 1000; width: calc(100% - 1.5rem);"></div>
+                </div>
+                <div class="col-sm-5">
+                  <label for="product-name-input" class="form-label">Nama Produk</label>
+                  <input type="text" class="form-control" id="product-name-input" placeholder="Contoh: Roti Sobek"
+                    required>
+                </div>
+                <div class="col-sm-2 d-grid">
+                  <button type="submit" class="btn btn-primary"><i class="bi bi-plus-circle-fill"></i> Tambah</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card menu-card h-100" onclick="showPage('history-laporan-page')">
+            <div class="card-body text-center d-flex flex-column justify-content-center p-3">
               <i class="bi bi-clock-history text-secondary" style="font-size: 2rem"></i>
-              <p class="card-title mt-2 mb-0 fw-bold small">History Laporan</p>
+              <p class="card-title mt-2 mb-0 fw-bold">History Laporan</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div id="product-search-container" class="mb-3" style="display: none">
-        <input type="text" id="product-search-input" class="form-control" placeholder="Cari produk atau supplier..." />
-      </div>
-
       <div id="report-tables-container">
         <div id="initial-prompt" class="text-center text-muted p-5 border rounded">
-          <i class="bi bi-ui-checks-grid" style="font-size: 3rem"></i>
-          <h5 class="mt-3">Mulai Laporan Harian</h5>
-          <p>
-            Klik "Atur Produk" di atas untuk memilih produk yang akan dijual
-            hari ini.
-          </p>
         </div>
       </div>
-    </div>
-  </div>
 
-  <div id="history-laporan-page" class="page container py-4">
-    <header class="d-flex align-items-center pb-3 mb-4 border-bottom">
-      <button class="btn btn-light me-3" onclick="showPage('lapak-dashboard')">
-        <i class="bi bi-arrow-left"></i>
-      </button>
-      <h4 class="mb-0">History Laporan</h4>
-    </header>
-    <div id="history-loading" class="text-center p-5">
-      <div class="spinner-border text-primary"></div>
+      <h5 class="mt-4">Rincian Laporan Hari Ini</h5>
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th style="width: 5%">#</th>
+              <th>Produk & Supplier</th>
+              <th style="width: 15%">Stok Awal</th>
+              <th style="width: 15%">Stok Akhir</th>
+              <th class="text-center">Terjual</th>
+              <th class="text-end">Pendapatan</th>
+              <th style="width: 5%">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="report-table-body">
+            <tr id="no-data-row">
+              <td colspan="7" class="text-center text-muted p-4">
+                Belum ada produk yang ditambahkan ke laporan hari ini.
+              </td>
+            </tr>
+          </tbody>
+          <tfoot class="table-group-divider">
+            <tr class="fw-bold">
+              <td colspan="4" class="text-end">Total Keseluruhan</td>
+              <td id="total-terjual" class="text-center">0</td>
+              <td id="total-pendapatan" class="text-end">Rp 0</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
-    <div id="history-list" class="list-group"></div>
-  </div>
+    <div id="history-laporan-page" class="page container py-4">
+      <header class="d-flex align-items-center pb-3 mb-4 border-bottom">
+        <button class="btn btn-light me-3" onclick="showPage('lapak-dashboard')">
+          <i class="bi bi-arrow-left"></i>
+        </button>
+        <h4 class="mb-0">History Laporan</h4>
+      </header>
+      <div id="history-loading" class="text-center p-5">
+        <div class="spinner-border text-primary"></div>
+      </div>
+      <div id="history-list" class="list-group"></div>
+    </div>
 </main>
 
 <div id="rekap-footer" class="sticky-footer" style="display: none">

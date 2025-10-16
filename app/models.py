@@ -1,4 +1,5 @@
-from app import db, datetime, sqlalchemy
+import datetime
+from app import db
 
 # --- HARGA KONSTAN (SEBAGAI DEFAULT) ---
 HARGA_BELI_DEFAULT = 8000
