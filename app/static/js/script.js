@@ -1,16 +1,14 @@
-const { jsPDF } = window.jspdf;
-// --- GLOBAL STATE & MODAL INSTANCES ---
+// ===================================================================
+//              STATE GLOBAL & FUNGSI BANTU (HELPERS)
+// ===================================================================
 let AppState = {
   currentUser: null,
   ownerData: {},
-  catatanData: { products: [] },
-  lapakSuppliers: [],
 };
+let modals = {};
 let pendapatanChartInstance = null;
 let biayaChartInstance = null;
-let modals = {};
 
-// --- HELPER & CORE FUNCTIONS ---
 function formatCurrency(value) {
   return `Rp ${new Intl.NumberFormat("id-ID").format(value)}`;
 }
@@ -105,7 +103,194 @@ function toggleTablePasswordVisibility(icon) {
   }
 }
 
-// --- LOGIN, ROUTING & PAGE MANAGEMENT ---
+// ===================================================================
+//              FUNGSI UTAMA & INISIALISASI HALAMAN
+// ===================================================================
+
+/**
+ * Titik awal: dipanggil saat halaman selesai dimuat.
+ * Bertanya ke server siapa yang login, lalu memanggil `initializePage`.
+ */
+async function main() {
+  try {
+    const response = await fetch('/api/get_session_info');
+    const result = await response.json();
+    if (result.is_logged_in) {
+      AppState.currentUser = {
+        role: result.role,
+        user_info: result.user_info
+      };
+      initializePage(); // Lanjutkan ke inisialisasi halaman
+    } else {
+      // Jika tidak ada sesi di server dan kita tidak di halaman login,
+      // paksa kembali ke halaman login.
+      if (window.location.pathname !== "/") {
+        window.location.href = "/";
+      }
+    }
+  } catch (error) {
+    console.error("Gagal memeriksa sesi:", error);
+    showToast("Gagal terhubung ke server untuk verifikasi sesi.", false);
+  }
+  updateDate();
+}
+
+/**
+ * Menginisialisasi fungsionalitas berdasarkan halaman yang sedang aktif.
+ * Ini adalah "router" frontend yang baru dan lebih sederhana.
+ */
+function initializePage() {
+  if (!AppState.currentUser) return; // Keluar jika tidak ada pengguna
+
+  // Inisialisasi semua modal terlebih dahulu
+  initModals();
+
+  const role = AppState.currentUser.role;
+  
+  // Cek kita ada di halaman mana dengan mencari elemen unik
+  if (role === 'owner' && document.getElementById('owner-pages')) {
+    setupOwnerPage();
+  } else if (role === 'lapak' && document.getElementById('lapak-pages')) {
+    setupLapakPage();
+  } else if (role === 'supplier' && document.getElementById('supplier-pages')) {
+    setupSupplierPage();
+  }
+}
+
+// Panggil fungsi utama saat DOM siap
+document.addEventListener("DOMContentLoaded", main);
+
+// ===================================================================
+//              SETUP HALAMAN SPESIFIK & EVENT LISTENERS
+// ===================================================================
+
+/**
+ * Menyiapkan semua event listener untuk halaman Owner.
+ */
+function setupOwnerPage() {
+  console.log("Menyiapkan halaman Owner...");
+  document.getElementById("owner-name").textContent = AppState.currentUser.user_info.nama_lengkap;
+  
+  // Langsung muat data dashboard
+  populateOwnerDashboard();
+
+  // Tambahkan event listener dengan pengecekan
+  addSafeEventListener('edit-admin-form', 'submit', (e) => handleFormSubmit("admin", e));
+  addSafeEventListener('edit-lapak-form', 'submit', (e) => handleFormSubmit("lapak", e));
+  addSafeEventListener('edit-supplier-form', 'submit', (e) => handleFormSubmit("supplier", e));
+  addSafeEventListener('payment-confirmation-form', 'submit', handlePaymentSubmit);
+  addSafeEventListener('laporan-pendapatan-datepicker', 'change', populateLaporanPendapatan);
+  addSafeEventListener('laporan-biaya-datepicker', 'change', populateLaporanBiaya);
+  addSafeEventListener('manage-reports-filter-btn', 'click', populateManageReportsPage);
+  addSafeEventListener('payment-history-filter-btn', 'click', populatePaymentHistory);
+  addSafeEventListener('owner-supplier-select', 'change', fetchAndDisplayOwnerSupplierHistory);
+  addSafeEventListener('chart-filter-btn', 'click', fetchAndDrawCharts);
+  addSafeEventListener('owner-history-filter-btn', 'click', fetchAndDisplayOwnerSupplierHistory);
+}
+
+/**
+ * Menyiapkan semua event listener untuk halaman Lapak.
+ */
+function setupLapakPage() {
+  console.log("Menyiapkan halaman Lapak...");
+  document.getElementById("lapak-name").textContent = AppState.currentUser.user_info.nama_lengkap;
+  
+  // Langsung muat data dashboard
+  populateLapakDashboard();
+  
+  // Tambahkan event listener
+  addSafeEventListener('kirim-laporan-btn', 'click', handleKirimLaporan);
+  document.querySelectorAll(".rekap-input").forEach(input => {
+      input.addEventListener("input", formatNumberInput);
+      input.addEventListener("keyup", updateGrandTotals);
+  });
+  if (document.getElementById('rekap-footer')) manageFooterVisibility();
+}
+
+/**
+ * Menyiapkan semua event listener untuk halaman Supplier.
+ */
+function setupSupplierPage() {
+    console.log("Menyiapkan halaman Supplier...");
+    document.getElementById("supplier-name").textContent = AppState.currentUser.user_info.nama_supplier;
+
+    // Langsung muat data dashboard
+    populateSupplierDashboard();
+    
+    // Tambahkan event listener
+    addSafeEventListener('supplier-history-filter-btn', 'click', populateSupplierHistoryPage);
+}
+
+// ===================================================================
+//              FUNGSI-FUNGSI LOGIKA (OWNER, LAPAK, SUPPLIER)
+// ===================================================================
+// Taruh semua fungsi logika aplikasi Anda di sini.
+// Contoh: populateOwnerDashboard, handleLogin, handleLogout, handleFormSubmit, 
+// populateLapakDashboard, dll.
+// Kode dari fungsi-fungsi ini tidak perlu diubah.
+
+function initModals() {
+  // Fungsi ini membuat objek JavaScript dari semua modal di halaman
+  // Ini memungkinkan kita memanggilnya dengan `modals.admin.show()`
+  const adminModalEl = document.getElementById("edit-admin-modal");
+  if (adminModalEl) modals.admin = new bootstrap.Modal(adminModalEl);
+
+  const lapakModalEl = document.getElementById("edit-lapak-modal");
+  if (lapakModalEl) modals.lapak = new bootstrap.Modal(lapakModalEl);
+  
+  // Tambahkan semua modal Anda yang lain di sini...
+  const supplierModalEl = document.getElementById("edit-supplier-modal");
+  if (supplierModalEl) modals.supplier = new bootstrap.Modal(supplierModalEl);
+
+  const paymentModalEl = document.getElementById("payment-confirmation-modal");
+  if (paymentModalEl) modals.payment = new bootstrap.Modal(paymentModalEl);
+  
+  const reportDetailModalEl = document.getElementById("report-detail-modal");
+  if (reportDetailModalEl) modals.reportDetail = new bootstrap.Modal(reportDetailModalEl);
+}
+
+function addSafeEventListener(elementId, eventType, handler) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.addEventListener(eventType, handler);
+    }
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
+  try {
+    const response = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    const result = await response.json();
+    if (response.ok && result.success) {
+      // PENTING: Arahkan ke halaman baru setelah login berhasil
+      window.location.href = '/dashboard';
+    } else {
+      showToast(result.message || "Login Gagal", false);
+    }
+  } catch (e) {
+    showToast("Terjadi kesalahan koneksi.", false);
+  }
+}
+
+function handleLogout() {
+  localStorage.removeItem("userSession"); // Hapus sisa data lama
+  window.location.href = "/logout";
+}
+
+function updateDate() {
+    const today = new Date().toLocaleDateString("id-ID", {
+      weekday: "long", year: "numeric", month: "long", day: "numeric",
+    });
+    const dateElements = document.querySelectorAll(".current-date");
+    dateElements.forEach(el => el.textContent = today);
+}
+
 async function showPage(pageId) {
   // Tampilkan/sembunyikan footer rekap untuk halaman lapak
   const rekapFooter = document.getElementById("rekap-footer");
@@ -141,28 +326,6 @@ async function showPage(pageId) {
   }
 }
 
-async function handleLogin(e) {
-  e.preventDefault();
-  const username = document.getElementById("username").value.trim(),
-    password = document.getElementById("password").value;
-  try {
-    const response = await fetch("/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-    const result = await response.json();
-    if (response.ok && result.success) {
-      localStorage.setItem("userSession", JSON.stringify(result));
-      AppState.currentUser = result;
-      window.location.href = "/dashboard";
-    } else {
-      showToast(result.message || "Login Gagal", false);
-    }
-  } catch (e) {
-    showToast("Terjadi kesalahan koneksi.", false);
-  }
-}
 async function handleAuthRouting() {
     // 1. Tanya server siapa yang sedang login
     try {
@@ -210,12 +373,6 @@ async function routeUser(role) {
     const supplierNameEl = document.getElementById("supplier-name");
     if(supplierNameEl) supplierNameEl.textContent = AppState.currentUser.user_info.nama_supplier;
   }
-}
-function handleLogout() {
-    // Hapus sisa data lama dari browser
-    localStorage.removeItem("userSession"); 
-    // Arahkan ke endpoint logout di server
-    window.location.href = "/logout";
 }
 
 // --- OWNER FUNCTIONS ---
@@ -1770,70 +1927,5 @@ async function populateSupplierHistoryPage() {
   }
 }
 
-// --- APP INITIALIZATION ---
-document.addEventListener("DOMContentLoaded", () => {
-    // Selalu jalankan fungsi otentikasi dan tanggal
-    handleAuthRouting();
-    updateDate();
-    
-    // --- Logika untuk Halaman Login ---
-    const loginForm = document.getElementById("login-form");
-    if (loginForm) {
-        loginForm.addEventListener("submit", handleLogin);
-    }
-
-    // --- Logika untuk Halaman Owner ---
-    const editAdminForm = document.getElementById("edit-admin-form");
-    if (editAdminForm) editAdminForm.addEventListener("submit", (e) => handleFormSubmit("admin", e));
-
-    const editLapakForm = document.getElementById("edit-lapak-form");
-    if (editLapakForm) editLapakForm.addEventListener("submit", (e) => handleFormSubmit("lapak", e));
-    
-    const editSupplierForm = document.getElementById("edit-supplier-form");
-    if (editSupplierForm) editSupplierForm.addEventListener("submit", (e) => handleFormSubmit("supplier", e));
-
-    const paymentForm = document.getElementById("payment-confirmation-form");
-    if (paymentForm) paymentForm.addEventListener("submit", handlePaymentSubmit);
-
-    const lpd = document.getElementById("laporan-pendapatan-datepicker");
-    if (lpd) lpd.addEventListener("change", populateLaporanPendapatan);
-
-    const lbd = document.getElementById("laporan-biaya-datepicker");
-    if (lbd) lbd.addEventListener("change", populateLaporanBiaya);
-    
-    const manageReportsFilterBtn = document.getElementById('manage-reports-filter-btn');
-    if (manageReportsFilterBtn) manageReportsFilterBtn.addEventListener('click', populateManageReportsPage);
-
-    const paymentHistoryFilterBtn = document.getElementById('payment-history-filter-btn');
-    if (paymentHistoryFilterBtn) paymentHistoryFilterBtn.addEventListener('click', populatePaymentHistory);
-
-    const ownerSupplierSelect = document.getElementById('owner-supplier-select');
-    if (ownerSupplierSelect) ownerSupplierSelect.addEventListener('change', fetchAndDisplayOwnerSupplierHistory);
-    
-    const chartFilterBtn = document.getElementById('chart-filter-btn');
-    if (chartFilterBtn) chartFilterBtn.addEventListener('click', fetchAndDrawCharts);
-
-    const ownerHistoryFilterBtn = document.getElementById('owner-history-filter-btn');
-    if (ownerHistoryFilterBtn) ownerHistoryFilterBtn.addEventListener('click', fetchAndDisplayOwnerSupplierHistory);
-
-
-    // --- Logika untuk Halaman Lapak ---
-    const kirimLaporanBtn = document.getElementById("kirim-laporan-btn");
-    if (kirimLaporanBtn) kirimLaporanBtn.addEventListener("click", handleKirimLaporan);
-
-    const rekapInputs = document.querySelectorAll(".rekap-input");
-    rekapInputs.forEach(input => {
-        input.addEventListener("input", formatNumberInput);
-        input.addEventListener("keyup", updateGrandTotals);
-    });
-
-    // Panggil fungsi ini jika ada di halaman lapak
-    if (document.getElementById('rekap-footer')) {
-        manageFooterVisibility();
-    }
-    
-    // --- Logika untuk Halaman Supplier ---
-    const supplierHistoryFilterBtn = document.getElementById('supplier-history-filter-btn');
-    if (supplierHistoryFilterBtn) supplierHistoryFilterBtn.addEventListener('click', populateSupplierHistoryPage);
-
-});
+// ... (salin-tempel SEMUA fungsi logika Anda yang lain ke sini tanpa perubahan)
+// populateOwnerDashboard, handleFormSubmit, populateLapakDashboard, dst...
