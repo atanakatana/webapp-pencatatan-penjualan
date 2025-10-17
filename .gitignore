@@ -1,21 +1,23 @@
 Virtual Environment
-
 venv/
 *.venv/
 env/
 .env
-Python cache files
 
+Python cache files
 pycache/
 *.pyc
 *.pyo
 *.pyd
-Database files
 
+Database files
 *.db
 *.sqlite3
-OS and Editor specific files
 
+OS and Editor specific files
 .DS_Store
 .vscode/
 .idea/
+
+Backup
+backup/
