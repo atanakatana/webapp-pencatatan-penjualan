@@ -35,6 +35,7 @@ def init_db_command():
 @app.cli.command("seed-db")
 def seed_db_command():
     from app.models import Admin, Supplier, Lapak, Product, SupplierBalance, LaporanHarian, LaporanHarianProduk, PembayaranSupplier
+    from werkzeug.security import generate_password_hash # <--- TAMBAHKAN IMPORT INI
     """Menghapus database dan membuat data demo komprehensif untuk 90 hari."""
     db.drop_all()
     db.create_all()
@@ -43,9 +44,9 @@ def seed_db_command():
     # ===================================================================
     ## 1. Buat Pengguna Inti (Owner & Admin)
     # ===================================================================
-    owner = Admin(nama_lengkap="Owner Utama", nik="0000000000000000", username="owner", email="owner@app.com", nomor_kontak="0", password="owner")
-    admin_andi = Admin(nama_lengkap="Andi (PJ Kopo)", nik="1111111111111111", username="andi", email="andi@app.com", nomor_kontak="0811", password="andi")
-    admin_budi = Admin(nama_lengkap="Budi (PJ Buah Batu)", nik="2222222222222222", username="budi", email="budi@app.com", nomor_kontak="0812", password="budi")
+    owner = Admin(nama_lengkap="Owner Utama", nik="0000000000000000", username="owner", email="owner@app.com", nomor_kontak="0", password=generate_password_hash("owner"))
+    admin_andi = Admin(nama_lengkap="Andi (PJ Kopo)", nik="1111111111111111", username="andi", email="andi@app.com", nomor_kontak="0811", password=generate_password_hash("andi"))
+    admin_budi = Admin(nama_lengkap="Budi (PJ Buah Batu)", nik="2222222222222222", username="budi", email="budi@app.com", nomor_kontak="0812", password=generate_password_hash("budi"))
     db.session.add_all([owner, admin_andi, admin_budi])
     db.session.commit()
     print("=> Pengguna (Owner, Admin) berhasil dibuat.")
@@ -63,7 +64,7 @@ def seed_db_command():
     ## 3. Buat Supplier & Produk (LEBIH BANYAK VARIASI)
     # ===================================================================
     # --- Supplier 1 ---
-    supplier_roti = Supplier(nama_supplier="Roti Lezat Bakery", username="roti", kontak="0851", nomor_register="REG001", password="roti", metode_pembayaran="BCA", nomor_rekening="112233")
+    supplier_roti = Supplier(nama_supplier="Roti Lezat Bakery", username="roti", kontak="0851", nomor_register="REG001", password=generate_password_hash("roti"), metode_pembayaran="BCA", nomor_rekening="112233")
     supplier_roti.balance = SupplierBalance(balance=0.0)
     db.session.add(supplier_roti)
     db.session.flush()
