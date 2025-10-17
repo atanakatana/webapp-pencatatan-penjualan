@@ -25,6 +25,8 @@ logging.basicConfig(level=logging.INFO)
 # Inisialisasi SQLAlchemy
 db = SQLAlchemy(app)
 
+
+from app import routes, models
 # ===================================================================
 # CLI COMMANDS UNTUK INISIALISASI & SEEDING DATABASE
 # ===================================================================
@@ -173,5 +175,3 @@ def seed_db_command():
     db.session.commit()
     print("=> Data historis berhasil dibuat.")
     print("\nDatabase siap untuk demo! Silakan jalankan aplikasi.")
-
-    from app import routes, models
