@@ -1,0 +1,500 @@
+{% extends "base.html" %} {% block content %}
+
+<main id="owner-pages">
+  <div id="owner-dashboard" class="page container py-4">
+    <header class="d-flex justify-content-between align-items-center pb-3 mb-4 border-bottom">
+      <div>
+        <h4 class="mb-0">Dashboard, <span id="owner-name">Owner</span></h4>
+        <p class="text-muted mb-0 small" id="current-date-owner"></p>
+      </div>
+      <button class="btn btn-outline-danger btn-sm" onclick="handleLogout()">
+        <i class="bi bi-box-arrow-right"></i> Logout
+      </button>
+    </header>
+    <div class="row g-3 mb-4">
+      <div class="col-md-6">
+        <div class="card bg-warning text-dark shadow-sm menu-card" onclick="showPage('owner-laporan-biaya-page')">
+          <div class="card-body">
+            <h6 class="card-title">
+              <i class="bi bi-truck"></i> Biaya Supplier (Bulan Ini)
+            </h6>
+            <h4 class="display-6" id="owner-biaya-card">Rp 0</h4>
+            <small>Total pembayaran terkonfirmasi</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card text-bg-success shadow-sm menu-card" onclick="showPage('owner-laporan-pendapatan-page')">
+          <div class="card-body">
+            <h6 class="card-title">
+              <i class="bi bi-cash-coin"></i> Pendapatan (Bulan Ini)
+            </h6>
+            <h4 class="display-6" id="owner-pendapatan-card">Rp 0</h4>
+            <small>Klik untuk detail harian</small>
+          </div>
+        </div>
+      </div>
+    </div>
+    <h5 class="mb-3">Menu Data & Pengelolaan</h5>
+    <div class="row g-3">
+      <div class="col-6 col-md-3">
+        <div class="card menu-card h-100" onclick="showPage('owner-data-admin-page')">
+          <div class="card-body text-center p-3">
+            <i class="bi bi-person-badge-fill text-info" style="font-size: 2rem"></i>
+            <p class="card-title mt-2 mb-0 fw-bold small">Data Admin</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card menu-card h-100" onclick="showPage('owner-data-lapak-page')">
+          <div class="card-body text-center p-3">
+            <i class="bi bi-shop text-success" style="font-size: 2rem"></i>
+            <p class="card-title mt-2 mb-0 fw-bold small">Data Lapak</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card menu-card h-100" onclick="showPage('owner-data-supplier-page')">
+          <div class="card-body text-center p-3">
+            <i class="bi bi-truck text-warning" style="font-size: 2rem"></i>
+            <p class="card-title mt-2 mb-0 fw-bold small">Data Supplier</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card menu-card h-100" onclick="showPage('owner-manage-reports-page')">
+          <div class="card-body text-center p-3">
+            <i class="bi bi-file-earmark-check-fill text-primary" style="font-size: 2rem"></i>
+            <p class="card-title mt-2 mb-0 fw-bold small">Manajemen Laporan</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card menu-card h-100" onclick="showPage('owner-pembayaran-page')">
+          <div class="card-body text-center p-3">
+            <i class="bi bi-credit-card-2-front-fill text-danger" style="font-size: 2rem"></i>
+            <p class="card-title mt-2 mb-0 fw-bold small">
+              Pembayaran Supplier
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card menu-card h-100" onclick="showPage('owner-supplier-history-page')">
+          <div class="card-body text-center p-3">
+            <i class="bi bi-clock-history text-secondary" style="font-size: 2rem"></i>
+            <p class="card-title mt-2 mb-0 fw-bold small">Riwayat Supplier</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card menu-card h-100" onclick="showPage('owner-chart-page')">
+          <div class="card-body text-center p-3">
+            <i class="bi bi-bar-chart-line-fill text-purple" style="font-size: 2rem"></i>
+            <p class="card-title mt-2 mb-0 fw-bold small">Analisis Grafik</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="owner-laporan-biaya-page" class="page container py-4">
+    <header class="d-flex align-items-center pb-3 mb-4 border-bottom">
+      <button class="btn btn-light me-3" onclick="showPage('owner-dashboard')">
+        <i class="bi bi-arrow-left"></i>
+      </button>
+      <h4 class="mb-0">Laporan Biaya Supplier Harian</h4>
+    </header>
+    <div class="row mb-3 align-items-center">
+      <div class="col-md-4">
+        <label for="laporan-biaya-datepicker" class="form-label">Pilih Tanggal Laporan:</label><input type="date"
+          class="form-control" id="laporan-biaya-datepicker" />
+      </div>
+      <div class="col-md-8">
+        <div class="card bg-warning text-dark mt-3">
+          <div class="card-body text-end">
+            <h6 class="card-title">Total Biaya Supplier Tanggal Terpilih</h6>
+            <h3 class="display-6" id="total-biaya-harian">Rp 0</h3>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="accordion" id="laporan-biaya-accordion">
+      <div class="text-center p-5">
+        <div class="spinner-border text-warning"></div>
+        <p class="mt-2 text-muted">Memuat data...</p>
+      </div>
+    </div>
+  </div>
+  <div id="owner-laporan-pendapatan-page" class="page container py-4">
+    <header class="d-flex align-items-center pb-3 mb-4 border-bottom">
+      <button class="btn btn-light me-3" onclick="showPage('owner-dashboard')">
+        <i class="bi bi-arrow-left"></i>
+      </button>
+      <h4 class="mb-0">Laporan Pendapatan Harian</h4>
+    </header>
+    <div class="row mb-3 align-items-center">
+      <div class="col-md-4">
+        <label for="laporan-pendapatan-datepicker" class="form-label">Pilih Tanggal Laporan:</label><input type="date"
+          class="form-control" id="laporan-pendapatan-datepicker" />
+      </div>
+      <div class="col-md-8">
+        <div class="card text-bg-success mt-3">
+          <div class="card-body text-end">
+            <h6 class="card-title">Total Pendapatan Tanggal Terpilih</h6>
+            <h3 class="display-6" id="total-pendapatan-harian">Rp 0</h3>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="accordion" id="laporan-pendapatan-accordion">
+      <div class="text-center p-5">
+        <div class="spinner-border text-primary"></div>
+        <p class="mt-2 text-muted">Memuat data...</p>
+      </div>
+    </div>
+  </div>
+  <div id="owner-data-admin-page" class="page container py-4">
+    <header class="d-flex align-items-center pb-3 mb-4 border-bottom">
+      <button class="btn btn-light me-3" onclick="showPage('owner-dashboard')">
+        <i class="bi bi-arrow-left"></i>
+      </button>
+      <h4 class="mb-0">Data Admin</h4>
+    </header>
+    <div class="d-grid mb-3">
+      <button class="btn btn-primary" onclick="openEditModal('admin')">
+        <i class="bi bi-plus-circle-fill"></i> Tambah Admin Baru
+      </button>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Nama Lengkap</th>
+            <th>NIK</th>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Kontak</th>
+            <th>Password</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="admin-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="owner-data-lapak-page" class="page container py-4">
+    <header class="d-flex align-items-center pb-3 mb-4 border-bottom">
+      <button class="btn btn-light me-3" onclick="showPage('owner-dashboard')">
+        <i class="bi bi-arrow-left"></i>
+      </button>
+      <h4 class="mb-0">Data Lapak</h4>
+    </header>
+    <div class="d-grid mb-3">
+      <button class="btn btn-primary" onclick="openEditModal('lapak')">
+        <i class="bi bi-plus-circle-fill"></i> Tambah Lapak Baru
+      </button>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Lokasi Lapak</th>
+            <th>Penanggung Jawab</th>
+            <th>Anggota</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="lapak-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="owner-data-supplier-page" class="page container py-4">
+    <header class="d-flex align-items-center pb-3 mb-4 border-bottom">
+      <button class="btn btn-light me-3" onclick="showPage('owner-dashboard')">
+        <i class="bi bi-arrow-left"></i>
+      </button>
+      <h4 class="mb-0">Data Supplier</h4>
+    </header>
+    <div class="d-grid mb-3">
+      <button class="btn btn-primary" onclick="openEditModal('supplier')">
+        <i class="bi bi-plus-circle-fill"></i> Tambah Supplier Baru
+      </button>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Nama Supplier</th>
+            <th>Username</th>
+            <th>Kontak</th>
+            <th>No. Register</th>
+            <th>Password</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="supplier-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="owner-pembayaran-page" class="page container py-4">
+    <header class="d-flex align-items-center pb-3 mb-4 border-bottom">
+      <button class="btn btn-light me-3" onclick="showPage('owner-dashboard')">
+        <i class="bi bi-arrow-left"></i>
+      </button>
+      <h4 class="mb-0">Pembayaran Tagihan Supplier</h4>
+    </header>
+
+    <div id="pembayaran-content-loading" class="text-center p-5">
+      <div class="spinner-border text-primary"></div>
+      <p class="mt-2 text-muted">Memuat data pembayaran...</p>
+    </div>
+
+    <div id="pembayaran-content-main" style="display: none">
+      <h5 class="mb-3">Daftar Tagihan Supplier</h5>
+      <div class="table-responsive mb-5">
+        <table class="table table-striped table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Nama Supplier</th>
+              <th>Total Tagihan</th>
+              <th>Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="pembayaran-table-body"></tbody>
+        </table>
+      </div>
+
+      <h5 class="mb-3">Riwayat Pembayaran</h5>
+      <div class="row g-3 mb-4 align-items-center p-3 bg-light border rounded">
+        <div class="col-md-4">
+          <label for="payment-history-start-date" class="form-label">Tanggal Mulai</label>
+          <input type="date" id="payment-history-start-date" class="form-control" />
+        </div>
+        <div class="col-md-4">
+          <label for="payment-history-end-date" class="form-label">Tanggal Akhir</label>
+          <input type="date" id="payment-history-end-date" class="form-control" />
+        </div>
+        <div class="col-md-2">
+          <label for="payment-history-method" class="form-label">Metode</label>
+          <select id="payment-history-method" class="form-select">
+            <option value="semua">Semua</option>
+            <option value="BCA">BCA</option>
+            <option value="DANA">DANA</option>
+          </select>
+        </div>
+        <div class="col-md-2 d-grid">
+          <label class="form-label d-none d-md-block">&nbsp;</label>
+          <button id="payment-history-filter-btn" class="btn btn-primary">
+            <i class="bi bi-funnel-fill"></i>
+          </button>
+        </div>
+      </div>
+
+      <div id="payment-history-loading" class="text-center p-4" style="display: none">
+        <div class="spinner-border spinner-border-sm"></div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered">
+          <thead class="table-light">
+            <tr>
+              <th>Tanggal</th>
+              <th>Supplier</th>
+              <th>Jumlah</th>
+              <th>Metode</th>
+            </tr>
+          </thead>
+          <tbody id="payment-history-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div id="owner-manage-reports-page" class="page container py-4">
+    <header class="d-flex align-items-center pb-3 mb-4 border-bottom">
+      <button class="btn btn-light me-3" onclick="showPage('owner-dashboard')">
+        <i class="bi bi-arrow-left"></i>
+      </button>
+      <h4 class="mb-0">Manajemen Laporan</h4>
+    </header>
+
+    <div class="row g-3 mb-4 align-items-end p-3 bg-light border rounded">
+      <div class="col-md-4">
+        <label for="manage-reports-supplier-filter" class="form-label">Filter per Supplier</label>
+        <select id="manage-reports-supplier-filter" class="form-select">
+          <option value="">Semua Supplier</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label for="manage-reports-start-date" class="form-label">Tanggal Mulai</label>
+        <input type="date" id="manage-reports-start-date" class="form-control" />
+      </div>
+      <div class="col-md-3">
+        <label for="manage-reports-end-date" class="form-label">Tanggal Akhir</label>
+        <input type="date" id="manage-reports-end-date" class="form-control" />
+      </div>
+      <div class="col-md-2 d-grid">
+        <button id="manage-reports-filter-btn" class="btn btn-primary">
+          <i class="bi bi-funnel-fill"></i> Terapkan
+        </button>
+      </div>
+    </div>
+
+    <div class="text-center p-5" id="manage-reports-loading">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="mt-2 text-muted">Memuat data laporan...</p>
+    </div>
+
+    <div id="manage-reports-content" style="display: none">
+      <div class="table-responsive">
+        <table class="table table-striped table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>ID</th>
+              <th>Lapak</th>
+              <th>PJ</th>
+              <th>Tanggal</th>
+              <th>Pendapatan</th>
+              <th>Terjual</th>
+              <th>Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="unconfirmed-reports-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div id="owner-supplier-history-page" class="page container py-4">
+    <header class="d-flex align-items-center pb-3 mb-4 border-bottom">
+      <button class="btn btn-light me-3" onclick="showPage('owner-dashboard')">
+        <i class="bi bi-arrow-left"></i>
+      </button>
+      <h4 class="mb-0">Riwayat per Supplier</h4>
+    </header>
+    <div class="row g-3 mb-4 align-items-end p-3 bg-light border rounded">
+      <div class="col-md-4">
+        <label for="owner-supplier-select" class="form-label">Pilih Supplier:</label>
+        <select id="owner-supplier-select" class="form-select">
+          <option selected value="">-- Pilih Supplier --</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label for="owner-history-start-date" class="form-label">Tanggal Mulai</label>
+        <input type="date" id="owner-history-start-date" class="form-control" />
+      </div>
+      <div class="col-md-3">
+        <label for="owner-history-end-date" class="form-label">Tanggal Akhir</label>
+        <input type="date" id="owner-history-end-date" class="form-control" />
+      </div>
+      <div class="col-md-2 d-grid">
+        <button id="owner-history-filter-btn" class="btn btn-primary">
+          <i class="bi bi-funnel-fill"></i> Terapkan
+        </button>
+      </div>
+    </div>
+
+    <div id="owner-supplier-history-loading" class="text-center p-5" style="display: none">
+      <div class="spinner-border text-primary"></div>
+    </div>
+
+    <div id="owner-supplier-history-content" style="display: none">
+      <div class="row">
+        <div class="col-lg-8">
+          <h5 class="mb-3">Riwayat Penjualan Produk</h5>
+          <div class="table-responsive" style="max-height: 50vh">
+            <table class="table table-striped table-sm">
+              <thead class="table-light">
+                <tr>
+                  <th>Tanggal</th>
+                  <th>Lapak</th>
+                  <th>Produk</th>
+                  <th>Terjual</th>
+                  <th>Nominal</th>
+                </tr>
+              </thead>
+              <tbody id="owner-supplier-sales-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <h5 class="mb-3">Riwayat Pembayaran Diterima</h5>
+          <div class="table-responsive" style="max-height: 50vh">
+            <table class="table table-striped table-sm">
+              <thead class="table-light">
+                <tr>
+                  <th>Tanggal</th>
+                  <th>Jumlah</th>
+                  <th>Metode</th>
+                </tr>
+              </thead>
+              <tbody id="owner-supplier-payment-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="owner-chart-page" class="page container py-4">
+    <header class="d-flex align-items-center pb-3 mb-4 border-bottom">
+      <button class="btn btn-light me-3" onclick="showPage('owner-dashboard')">
+        <i class="bi bi-arrow-left"></i>
+      </button>
+      <h4 class="mb-0">Analisis Grafik Pendapatan & Biaya</h4>
+    </header>
+
+    <div class="row g-3 mb-4 align-items-end p-3 bg-light border rounded">
+      <div class="col-md-5">
+        <label for="chart-month-select" class="form-label">Bulan</label>
+        <select id="chart-month-select" class="form-select">
+          <option value="1">Januari</option>
+          <option value="2">Februari</option>
+          <option value="3">Maret</option>
+          <option value="4">April</option>
+          <option value="5">Mei</option>
+          <option value="6">Juni</option>
+          <option value="7">Juli</option>
+          <option value="8">Agustus</option>
+          <option value="9">September</option>
+          <option value="10">Oktober</option>
+          <option value="11">November</option>
+          <option value="12">Desember</option>
+        </select>
+      </div>
+      <div class="col-md-5">
+        <label for="chart-year-select" class="form-label">Tahun</label>
+        <select id="chart-year-select" class="form-select"></select>
+      </div>
+      <div class="col-md-2 d-grid">
+        <button id="chart-filter-btn" class="btn btn-primary">
+          <i class="bi bi-search"></i> Tampilkan
+        </button>
+      </div>
+    </div>
+
+    <div id="chart-loading" class="text-center p-5" style="display: none">
+      <div class="spinner-border text-primary"></div>
+      <p class="mt-2 text-muted">Memuat data grafik...</p>
+    </div>
+
+    <div id="chart-content">
+      <div class="row">
+        <div class="col-lg-6 mb-4">
+          <h5 class="text-center text-success mb-3">
+            Grafik Pendapatan Harian
+          </h5>
+          <canvas id="pendapatanChart"></canvas>
+        </div>
+        <div class="col-lg-6 mb-4">
+          <h5 class="text-center text-danger mb-3">
+            Grafik Biaya Supplier Harian
+          </h5>
+          <canvas id="biayaChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+{% endblock %}
