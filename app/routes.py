@@ -52,20 +52,21 @@ def handle_login():
     # ... (logika pengecekan username/password Anda tetap sama)
     
     # === TAMBAHAN PENTING: Simpan peran di sesi saat login berhasil ===
-    # Contoh untuk admin/owner
     admin = Admin.query.filter(db.func.lower(Admin.username) == username).first()
-    if admin and check_password_hash(admin.password, password): # <--- UBAH BARIS INI
+    if admin and check_password_hash(admin.password, password): # <--- UBAH 'Admin' menjadi 'admin'
         role = 'owner' if admin.username == 'owner' else 'lapak'
-        session['user_role'] = role # Simpan peran
-        session['user_info'] = {"nama_lengkap": admin.nama_lengkap, "id": admin.id} # Simpan info
-        return jsonify({"success": True, "role": role, "user_info": session['user_info']})
+        user_info_dict = {"nama_lengkap": admin.nama_lengkap, "id": admin.id} # Buat dictionary biasa
+        session['user_role'] = role
+        session['user_info'] = user_info_dict # Gunakan untuk session
+        return jsonify({"success": True, "role": role, "user_info": user_info_dict}) # Gunakan juga untuk jsonify
 
-    # Contoh untuk supplier
     supplier = Supplier.query.filter(db.func.lower(Supplier.username) == username).first()
-    if supplier and check_password_hash(supplier.password, password): # <--- UBAH BARIS INI
-        session['user_role'] = 'supplier' # Simpan peran
-        session['user_info'] = {"nama_supplier": supplier.nama_supplier,"supplier_id": supplier.id} # Simpan info
-        return jsonify({"success": True, "role": 'supplier', "user_info": session['user_info']})
+    if supplier and check_password_hash(supplier.password, password):
+        role = 'supplier' # Tambahkan ini untuk konsistensi
+        user_info_dict = {"nama_supplier": supplier.nama_supplier, "supplier_id": supplier.id} # Buat dictionary biasa
+        session['user_role'] = role
+        session['user_info'] = user_info_dict # Gunakan untuk session
+        return jsonify({"success": True, "role": role, "user_info": user_info_dict}) # Gunakan juga untuk jsonify
 
     return jsonify({"success": False, "message": "Username atau password salah"}), 401
     
