@@ -107,42 +107,40 @@ function toggleTablePasswordVisibility(icon) {
 
 // --- LOGIN, ROUTING & PAGE MANAGEMENT ---
 async function showPage(pageId) {
-  document.querySelectorAll(".page").forEach((e) => (e.style.display = "none"));
-  const activePage = document.getElementById(pageId);
-  if (activePage) {
-    activePage.style.display = "block";
-    if (pageId === "login-page") activePage.style.display = "flex";
-    document.getElementById("rekap-footer").style.display =
+  // Tampilkan/sembunyikan footer rekap untuk halaman lapak
+  const rekapFooter = document.getElementById("rekap-footer");
+  if (rekapFooter) {
+    rekapFooter.style.display =
       pageId === "lapak-dashboard" && AppState.currentUser?.role === "lapak"
         ? "block"
         : "none";
-    const { role } = AppState.currentUser || {};
-    if (role === "owner") {
-      if (pageId === "owner-dashboard") await populateOwnerDashboard();
-      if (pageId.startsWith("owner-laporan")) {
-        const dpPendapatan = document.getElementById(
-          "laporan-pendapatan-datepicker"
-        );
-        if (dpPendapatan) dpPendapatan.dispatchEvent(new Event("change"));
-        const dpBiaya = document.getElementById("laporan-biaya-datepicker");
-        if (dpBiaya) dpBiaya.dispatchEvent(new Event("change"));
-      }
-      if (pageId === "owner-manage-reports-page")
-        await populateManageReportsPage();
-      if (pageId === "owner-pembayaran-page") await populatePembayaranPage();
-      if (pageId === "owner-supplier-history-page")
-        await populateOwnerSupplierHistoryPage(); // <-- Tambahan
-      if (pageId === "owner-chart-page") await populateChartPage();
-    } else if (role === "lapak") {
-      if (pageId === "lapak-dashboard") await populateLapakDashboard();
-      if (pageId === "history-laporan-page") await populateHistoryLaporanPage();
-    } else if (role === "supplier") {
-      if (pageId === "supplier-dashboard") await populateSupplierDashboard();
-      if (pageId === "supplier-history-page")
-        await populateSupplierHistoryPage();
+  }
+  const { role } = AppState.currentUser || {};
+  if (role === "owner") {
+    if (pageId === "owner-dashboard") await populateOwnerDashboard();
+    if (pageId.startsWith("owner-laporan")) {
+      const dpPendapatan = document.getElementById(
+        "laporan-pendapatan-datepicker"
+      );
+      if (dpPendapatan) dpPendapatan.dispatchEvent(new Event("change"));
+      const dpBiaya = document.getElementById("laporan-biaya-datepicker");
+      if (dpBiaya) dpBiaya.dispatchEvent(new Event("change"));
     }
+    if (pageId === "owner-manage-reports-page")
+      await populateManageReportsPage();
+    if (pageId === "owner-pembayaran-page") await populatePembayaranPage();
+    if (pageId === "owner-supplier-history-page")
+      await populateOwnerSupplierHistoryPage(); // <-- Tambahan
+    if (pageId === "owner-chart-page") await populateChartPage();
+  } else if (role === "lapak") {
+    if (pageId === "lapak-dashboard") await populateLapakDashboard();
+    if (pageId === "history-laporan-page") await populateHistoryLaporanPage();
+  } else if (role === "supplier") {
+    if (pageId === "supplier-dashboard") await populateSupplierDashboard();
+    if (pageId === "supplier-history-page") await populateSupplierHistoryPage();
   }
 }
+
 async function handleLogin(e) {
   e.preventDefault();
   const username = document.getElementById("username").value.trim(),
@@ -157,7 +155,7 @@ async function handleLogin(e) {
     if (response.ok && result.success) {
       localStorage.setItem("userSession", JSON.stringify(result));
       AppState.currentUser = result;
-      await routeUser(result.role);
+      window.location.href = "/dashboard";
     } else {
       showToast(result.message || "Login Gagal", false);
     }
@@ -166,13 +164,30 @@ async function handleLogin(e) {
   }
 }
 async function handleAuthRouting() {
-  const session = localStorage.getItem("userSession");
-  if (session) {
-    AppState.currentUser = JSON.parse(session);
-    await routeUser(AppState.currentUser.role);
-  } else {
-    showLoginPage();
-  }
+    // 1. Tanya server siapa yang sedang login
+    try {
+        const response = await fetch('/api/get_session_info');
+        const result = await response.json();
+
+        if (result.is_logged_in) {
+            // 2. Jika ada yang login, simpan datanya di AppState
+            AppState.currentUser = {
+                role: result.role,
+                user_info: result.user_info
+            };
+            // 3. Jalankan fungsi untuk memuat data di halaman yang relevan
+            await routeUser(result.role);
+        } else {
+            // Jika tidak ada sesi di server, dan kita tidak di halaman login,
+            // paksa kembali ke halaman login.
+            if (window.location.pathname !== "/") {
+                window.location.href = "/";
+            }
+        }
+    } catch (error) {
+        console.error("Gagal memeriksa sesi:", error);
+        showToast("Gagal terhubung ke server untuk verifikasi sesi.", false);
+    }
 }
 function showLoginPage() {
   document
@@ -181,32 +196,26 @@ function showLoginPage() {
   showPage("login-page");
 }
 async function routeUser(role) {
-  document
-    .querySelectorAll("main")
-    .forEach((main) => (main.style.display = "none"));
+  // Langsung panggil showPage untuk memuat data, tanpa menyembunyikan apapun
   if (role === "owner") {
-    document.getElementById("owner-pages").style.display = "block";
     showPage("owner-dashboard");
-    document.getElementById("owner-name").textContent =
-      AppState.currentUser.user_info.nama_lengkap;
+    const ownerNameEl = document.getElementById("owner-name");
+    if(ownerNameEl) ownerNameEl.textContent = AppState.currentUser.user_info.nama_lengkap;
   } else if (role === "lapak") {
-    document.getElementById("lapak-pages").style.display = "block";
-    document.getElementById("lapak-name").textContent =
-      AppState.currentUser.user_info.nama_lengkap;
     showPage("lapak-dashboard");
+    const lapakNameEl = document.getElementById("lapak-name");
+    if(lapakNameEl) lapakNameEl.textContent = AppState.currentUser.user_info.nama_lengkap;
   } else if (role === "supplier") {
-    document.getElementById("supplier-pages").style.display = "block";
     showPage("supplier-dashboard");
-    document.getElementById("supplier-name").textContent =
-      AppState.currentUser.user_info.nama_supplier;
-  } else {
-    showLoginPage();
+    const supplierNameEl = document.getElementById("supplier-name");
+    if(supplierNameEl) supplierNameEl.textContent = AppState.currentUser.user_info.nama_supplier;
   }
 }
 function handleLogout() {
-  localStorage.removeItem("userSession");
-  AppState.currentUser = null;
-  window.location.reload();
+    // Hapus sisa data lama dari browser
+    localStorage.removeItem("userSession"); 
+    // Arahkan ke endpoint logout di server
+    window.location.href = "/logout";
 }
 
 // --- OWNER FUNCTIONS ---
@@ -1135,96 +1144,99 @@ async function handlePaymentSubmit(e) {
 let searchTimeout;
 
 function setupLapakInputListeners() {
-    const supplierInput = document.getElementById('supplier-name-input');
-    const suggestionsContainer = document.getElementById('supplier-suggestions');
-    const addProductForm = document.getElementById('add-product-form');
+  const supplierInput = document.getElementById("supplier-name-input");
+  const suggestionsContainer = document.getElementById("supplier-suggestions");
+  const addProductForm = document.getElementById("add-product-form");
 
-    // 1. Event listener untuk input supplier (dengan debounce)
-    supplierInput.addEventListener('input', () => {
-        clearTimeout(searchTimeout);
-        const query = supplierInput.value;
-        if (query.length < 2) {
-            suggestionsContainer.innerHTML = '';
-            return;
-        }
-        searchTimeout = setTimeout(async () => {
-            const response = await fetch(`/api/search_suppliers?q=${query}`);
-            const suppliers = await response.json();
-            let suggestionsHTML = '';
-            suppliers.forEach(s => {
-                suggestionsHTML += `<a href="#" class="list-group-item list-group-item-action" data-supplier-name="${s.nama_supplier}">${s.nama_supplier}</a>`;
-            });
-            suggestionsContainer.innerHTML = suggestionsHTML;
-        }, 300); // Tunggu 300ms setelah user berhenti mengetik
-    });
+  // 1. Event listener untuk input supplier (dengan debounce)
+  supplierInput.addEventListener("input", () => {
+    clearTimeout(searchTimeout);
+    const query = supplierInput.value;
+    if (query.length < 2) {
+      suggestionsContainer.innerHTML = "";
+      return;
+    }
+    searchTimeout = setTimeout(async () => {
+      const response = await fetch(`/api/search_suppliers?q=${query}`);
+      const suppliers = await response.json();
+      let suggestionsHTML = "";
+      suppliers.forEach((s) => {
+        suggestionsHTML += `<a href="#" class="list-group-item list-group-item-action" data-supplier-name="${s.nama_supplier}">${s.nama_supplier}</a>`;
+      });
+      suggestionsContainer.innerHTML = suggestionsHTML;
+    }, 300); // Tunggu 300ms setelah user berhenti mengetik
+  });
 
-    // 2. Event listener untuk memilih saran supplier
-    suggestionsContainer.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (e.target.classList.contains('list-group-item')) {
-            supplierInput.value = e.target.dataset.supplierName;
-            suggestionsContainer.innerHTML = '';
-            document.getElementById('product-name-input').focus();
-        }
-    });
+  // 2. Event listener untuk memilih saran supplier
+  suggestionsContainer.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (e.target.classList.contains("list-group-item")) {
+      supplierInput.value = e.target.dataset.supplierName;
+      suggestionsContainer.innerHTML = "";
+      document.getElementById("product-name-input").focus();
+    }
+  });
 
-    // 3. Event listener untuk submit form tambah produk
-    addProductForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const supplierName = supplierInput.value.trim();
-        const productName = document.getElementById('product-name-input').value.trim();
+  // 3. Event listener untuk submit form tambah produk
+  addProductForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const supplierName = supplierInput.value.trim();
+    const productName = document
+      .getElementById("product-name-input")
+      .value.trim();
 
-        if (supplierName && productName) {
-            addProductToReportTable(supplierName, productName);
-            addProductForm.reset();
-            supplierInput.focus();
-        }
-    });
+    if (supplierName && productName) {
+      addProductToReportTable(supplierName, productName);
+      addProductForm.reset();
+      supplierInput.focus();
+    }
+  });
 
-    // Sembunyikan suggestions jika klik di luar
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('#supplier-name-input')) {
-            suggestionsContainer.innerHTML = '';
-        }
-    });
+  // Sembunyikan suggestions jika klik di luar
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest("#supplier-name-input")) {
+      suggestionsContainer.innerHTML = "";
+    }
+  });
 }
 
 function addProductToReportTable(supplierName, productName) {
-    const tableBody = document.getElementById('report-table-body');
-    const noDataRow = document.getElementById('no-data-row');
+  const tableBody = document.getElementById("report-table-body");
+  const noDataRow = document.getElementById("no-data-row");
 
-    // Hilangkan pesan "Belum ada data" jika ada
-    if (noDataRow) noDataRow.remove();
+  // Hilangkan pesan "Belum ada data" jika ada
+  if (noDataRow) noDataRow.remove();
 
-    const rowCount = tableBody.rows.length + 1;
-    
-    // Cek apakah produk dari supplier yang sama sudah ada
-    const existingRow = Array.from(tableBody.rows).find(row => 
-        row.dataset.supplierName.toLowerCase() === supplierName.toLowerCase() && 
-        row.dataset.productName.toLowerCase() === productName.toLowerCase()
-    );
+  const rowCount = tableBody.rows.length + 1;
 
-    if (existingRow) {
-        showToast("Produk tersebut sudah ada di dalam laporan.", false);
-        existingRow.querySelector('.stok-awal').focus();
-        return;
-    }
+  // Cek apakah produk dari supplier yang sama sudah ada
+  const existingRow = Array.from(tableBody.rows).find(
+    (row) =>
+      row.dataset.supplierName.toLowerCase() === supplierName.toLowerCase() &&
+      row.dataset.productName.toLowerCase() === productName.toLowerCase()
+  );
 
-    const row = tableBody.insertRow();
-    row.className = 'product-row';
-    row.dataset.supplierName = supplierName;
-    row.dataset.productName = productName;
-    // Harga jual dan beli diambil dari backend saat submit,
-    // tapi kita gunakan default untuk tampilan di frontend
-    row.dataset.hargaJual = 10000;
-    row.dataset.hargaBeli = 8000;
+  if (existingRow) {
+    showToast("Produk tersebut sudah ada di dalam laporan.", false);
+    existingRow.querySelector(".stok-awal").focus();
+    return;
+  }
 
-    const stokInput = (className) => `
+  const row = tableBody.insertRow();
+  row.className = "product-row";
+  row.dataset.supplierName = supplierName;
+  row.dataset.productName = productName;
+  // Harga jual dan beli diambil dari backend saat submit,
+  // tapi kita gunakan default untuk tampilan di frontend
+  row.dataset.hargaJual = 10000;
+  row.dataset.hargaBeli = 8000;
+
+  const stokInput = (className) => `
         <div class="input-group input-group-sm">
             <input type="number" class="form-control text-center ${className}" placeholder="0" min="0" inputmode="numeric">
         </div>`;
 
-    row.innerHTML = `
+  row.innerHTML = `
         <td class="text-center">${rowCount}</td>
         <td>
             <strong>${productName}</strong><br>
@@ -1241,38 +1253,34 @@ function addProductToReportTable(supplierName, productName) {
         </td>
     `;
 
-    attachEventListenersToRow(row);
-    updateGrandTotals();
+  attachEventListenersToRow(row);
+  updateGrandTotals();
 }
 
 function removeProductRow(button) {
-    const row = button.closest('tr');
-    row.remove();
-    // Update nomor urut
-    const tableBody = document.getElementById('report-table-body');
-    Array.from(tableBody.rows).forEach((r, index) => {
-        r.cells[0].textContent = index + 1;
-    });
-    // Tampilkan pesan jika tabel kosong
-    if(tableBody.rows.length === 0) {
-        tableBody.innerHTML = `<tr id="no-data-row"><td colspan="7" class="text-center text-muted p-4">Belum ada produk yang ditambahkan ke laporan hari ini.</td></tr>`;
-    }
-    updateGrandTotals();
+  const row = button.closest("tr");
+  row.remove();
+  // Update nomor urut
+  const tableBody = document.getElementById("report-table-body");
+  Array.from(tableBody.rows).forEach((r, index) => {
+    r.cells[0].textContent = index + 1;
+  });
+  // Tampilkan pesan jika tabel kosong
+  if (tableBody.rows.length === 0) {
+    tableBody.innerHTML = `<tr id="no-data-row"><td colspan="7" class="text-center text-muted p-4">Belum ada produk yang ditambahkan ke laporan hari ini.</td></tr>`;
+  }
+  updateGrandTotals();
 }
 
 // --- LAPAK FUNCTIONS ---
 // PERUBAHAN 4: Modifikasi fungsi populateLapakDashboard
 // Fungsi untuk membuka modal "Atur Produk"
 
-
 // Fungsi untuk memperbarui daftar produk berdasarkan supplier yang dipilih
-
 
 // Fungsi untuk membuat tabel laporan berdasarkan produk yang dipilih
 
-
 // Fungsi untuk filter/pencarian
-
 
 async function populateLapakDashboard() {
   const loadingEl = document.getElementById("laporan-loading"),
@@ -1284,22 +1292,24 @@ async function populateLapakDashboard() {
   existsEl.style.display = "none";
 
   // Reset tabel laporan
-  const tableBody = document.getElementById('report-table-body');
-  if(tableBody) {
-      tableBody.innerHTML = `<tr id="no-data-row"><td colspan="7" class="text-center text-muted p-4">Belum ada produk yang ditambahkan ke laporan hari ini.</td></tr>`;
+  const tableBody = document.getElementById("report-table-body");
+  if (tableBody) {
+    tableBody.innerHTML = `<tr id="no-data-row"><td colspan="7" class="text-center text-muted p-4">Belum ada produk yang ditambahkan ke laporan hari ini.</td></tr>`;
   }
   updateGrandTotals(); // Reset total
 
   try {
-      const resp = await fetch(`/api/get_data_buat_catatan/${AppState.currentUser.user_info.lapak_id}`);
-      if (!resp.ok && resp.status === 409) {
-          existsEl.style.display = "block";
-          document.getElementById("rekap-footer").style.display = "none";
-      } else {
-          contentEl.style.display = "block";
-          // Panggil fungsi untuk mengaktifkan listener di form baru
-          setupLapakInputListeners();
-      }
+    const resp = await fetch(
+      `/api/get_data_buat_catatan/${AppState.currentUser.user_info.lapak_id}`
+    );
+    if (!resp.ok && resp.status === 409) {
+      existsEl.style.display = "block";
+      document.getElementById("rekap-footer").style.display = "none";
+    } else {
+      contentEl.style.display = "block";
+      // Panggil fungsi untuk mengaktifkan listener di form baru
+      setupLapakInputListeners();
+    }
   } catch (error) {
     loadingEl.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
   } finally {
@@ -1458,7 +1468,8 @@ function updateGrandTotals() {
 
   // Update baris total di dalam tfoot
   document.getElementById("total-terjual").textContent = totalTerjual;
-  document.getElementById("total-pendapatan").textContent = formatCurrency(totalPendapatan);
+  document.getElementById("total-pendapatan").textContent =
+    formatCurrency(totalPendapatan);
 
   // Update footer rekapitulasi (logika yang sudah ada)
   document.getElementById("total-sistem").textContent =
@@ -1550,22 +1561,24 @@ async function handleKirimLaporan() {
   let hasError = false;
 
   // Mengambil data dari SEMUA baris di kedua tabel (utama & manual)
-  document.querySelectorAll("#report-table-body .product-row").forEach((row) => {
+  document
+    .querySelectorAll("#report-table-body .product-row")
+    .forEach((row) => {
       const stokAwal = row.querySelector(".stok-awal").value;
       const stokAkhir = row.querySelector(".stok-akhir").value;
 
       // Hanya kirim data yang diisi
       if (stokAwal > 0 || stokAkhir > 0) {
-          let productEntry = {
-              // Kirim NAMA, bukan ID. Backend akan menanganinya.
-              supplier_name: row.dataset.supplierName,
-              product_name: row.dataset.productName,
-              stok_awal: parseInt(stokAwal) || 0,
-              stok_akhir: parseInt(stokAkhir) || 0,
-          };
-          productData.push(productEntry);
+        let productEntry = {
+          // Kirim NAMA, bukan ID. Backend akan menanganinya.
+          supplier_name: row.dataset.supplierName,
+          product_name: row.dataset.productName,
+          stok_awal: parseInt(stokAwal) || 0,
+          stok_akhir: parseInt(stokAkhir) || 0,
+        };
+        productData.push(productEntry);
       }
-  });
+    });
 
   if (hasError) return;
   if (productData.length === 0) {
@@ -1759,125 +1772,68 @@ async function populateSupplierHistoryPage() {
 
 // --- APP INITIALIZATION ---
 document.addEventListener("DOMContentLoaded", () => {
-  modals.admin = new bootstrap.Modal(
-    document.getElementById("edit-admin-modal")
-  );
-  modals.lapak = new bootstrap.Modal(
-    document.getElementById("edit-lapak-modal")
-  );
-  modals.supplier = new bootstrap.Modal(
-    document.getElementById("edit-supplier-modal")
-  );
-  modals.payment = new bootstrap.Modal(
-    document.getElementById("payment-confirmation-modal")
-  );
-  modals.reportDetail = new bootstrap.Modal(
-    document.getElementById("report-detail-modal")
-  );
-  // PERUBAHAN 7: Inisialisasi modal baru
-  modals.addManualProduct = new bootstrap.Modal(
-    document.getElementById("add-manual-product-modal")
-  );
-  modals.aturProduk = new bootstrap.Modal(
-    document.getElementById("atur-produk-modal")
-  );
-  const rekapCollapseEl = document.getElementById("rekap-manual-collapse");
-  if (rekapCollapseEl) {
-    const rekapText = document.getElementById("toggle-rekap-text");
-    const rekapIcon = document.getElementById("toggle-rekap-icon");
-
-    // Saat akan ditampilkan (show)
-    rekapCollapseEl.addEventListener("show.bs.collapse", (event) => {
-      rekapText.textContent = "Sembunyikan Input";
-      rekapIcon.classList.remove("bi-chevron-up");
-      rekapIcon.classList.add("bi-chevron-down");
-    });
-
-    // Saat akan disembunyikan (hide)
-    rekapCollapseEl.addEventListener("hide.bs.collapse", (event) => {
-      rekapText.textContent = "Input Hasil Penjualan";
-      rekapIcon.classList.remove("bi-chevron-down");
-      rekapIcon.classList.add("bi-chevron-up");
-    });
-  }
-  const todayISO = new Date().toISOString().split("T")[0];
-  ["laporan-pendapatan-datepicker", "laporan-biaya-datepicker"].forEach(
-    (id) => {
-      const el = document.getElementById(id);
-      if (el) el.value = todayISO;
+    // Selalu jalankan fungsi otentikasi dan tanggal
+    handleAuthRouting();
+    updateDate();
+    
+    // --- Logika untuk Halaman Login ---
+    const loginForm = document.getElementById("login-form");
+    if (loginForm) {
+        loginForm.addEventListener("submit", handleLogin);
     }
-  );
-  document.getElementById("login-form").addEventListener("submit", handleLogin);
-  document
-    .getElementById("edit-admin-form")
-    .addEventListener("submit", (e) => handleFormSubmit("admin", e));
-  document
-    .getElementById("edit-lapak-form")
-    .addEventListener("submit", (e) => handleFormSubmit("lapak", e));
-  document
-    .getElementById("edit-supplier-form")
-    .addEventListener("submit", (e) => handleFormSubmit("supplier", e));
-  document
-    .getElementById("payment-confirmation-form")
-    .addEventListener("submit", handlePaymentSubmit);
 
-  // PERUBAHAN 8: Tambahkan event listener untuk form manual
-  document
-    .getElementById("add-manual-product-form")
-    .addEventListener("submit", handleAddManualProductForm);
+    // --- Logika untuk Halaman Owner ---
+    const editAdminForm = document.getElementById("edit-admin-form");
+    if (editAdminForm) editAdminForm.addEventListener("submit", (e) => handleFormSubmit("admin", e));
 
-  const lpd = document.getElementById("laporan-pendapatan-datepicker");
-  if (lpd) lpd.addEventListener("change", populateLaporanPendapatan);
-  const lbd = document.getElementById("laporan-biaya-datepicker");
-  if (lbd) lbd.addEventListener("change", populateLaporanBiaya);
-  document
-    .getElementById("kirim-laporan-btn")
-    .addEventListener("click", handleKirimLaporan);
-  const filterBtn = document.getElementById("supplier-history-filter-btn");
-  if (filterBtn) {
-    filterBtn.addEventListener("click", populateSupplierHistoryPage);
-  }
-  const manageReportsFilterBtn = document.getElementById(
-    "manage-reports-filter-btn"
-  );
-  if (manageReportsFilterBtn) {
-    manageReportsFilterBtn.addEventListener("click", populateManageReportsPage);
-  }
+    const editLapakForm = document.getElementById("edit-lapak-form");
+    if (editLapakForm) editLapakForm.addEventListener("submit", (e) => handleFormSubmit("lapak", e));
+    
+    const editSupplierForm = document.getElementById("edit-supplier-form");
+    if (editSupplierForm) editSupplierForm.addEventListener("submit", (e) => handleFormSubmit("supplier", e));
 
-  const paymentHistoryFilterBtn = document.getElementById(
-    "payment-history-filter-btn"
-  );
-  if (paymentHistoryFilterBtn) {
-    paymentHistoryFilterBtn.addEventListener("click", populatePaymentHistory);
-  }
+    const paymentForm = document.getElementById("payment-confirmation-form");
+    if (paymentForm) paymentForm.addEventListener("submit", handlePaymentSubmit);
 
-  const ownerSupplierSelect = document.getElementById("owner-supplier-select");
-  if (ownerSupplierSelect) {
-    // Listener ini memastikan data tampil saat supplier DIPILIH
-    ownerSupplierSelect.addEventListener(
-      "change",
-      fetchAndDisplayOwnerSupplierHistory
-    );
-  }
-  const chartFilterBtn = document.getElementById("chart-filter-btn");
-  if (chartFilterBtn) {
-    chartFilterBtn.addEventListener("click", fetchAndDrawCharts);
-  }
-  const ownerHistoryFilterBtn = document.getElementById(
-    "owner-history-filter-btn"
-  );
-  if (ownerHistoryFilterBtn) {
-    // Listener ini memastikan data ter-filter saat tombol DIKLIK
-    ownerHistoryFilterBtn.addEventListener(
-      "click",
-      fetchAndDisplayOwnerSupplierHistory
-    );
-  }
-  const searchInput = document.getElementById("product-search-input");
-  if (searchInput) {
-    searchInput.addEventListener("input", filterReportTables);
-  }
-  manageFooterVisibility();
-  handleAuthRouting();
-  updateDate();
+    const lpd = document.getElementById("laporan-pendapatan-datepicker");
+    if (lpd) lpd.addEventListener("change", populateLaporanPendapatan);
+
+    const lbd = document.getElementById("laporan-biaya-datepicker");
+    if (lbd) lbd.addEventListener("change", populateLaporanBiaya);
+    
+    const manageReportsFilterBtn = document.getElementById('manage-reports-filter-btn');
+    if (manageReportsFilterBtn) manageReportsFilterBtn.addEventListener('click', populateManageReportsPage);
+
+    const paymentHistoryFilterBtn = document.getElementById('payment-history-filter-btn');
+    if (paymentHistoryFilterBtn) paymentHistoryFilterBtn.addEventListener('click', populatePaymentHistory);
+
+    const ownerSupplierSelect = document.getElementById('owner-supplier-select');
+    if (ownerSupplierSelect) ownerSupplierSelect.addEventListener('change', fetchAndDisplayOwnerSupplierHistory);
+    
+    const chartFilterBtn = document.getElementById('chart-filter-btn');
+    if (chartFilterBtn) chartFilterBtn.addEventListener('click', fetchAndDrawCharts);
+
+    const ownerHistoryFilterBtn = document.getElementById('owner-history-filter-btn');
+    if (ownerHistoryFilterBtn) ownerHistoryFilterBtn.addEventListener('click', fetchAndDisplayOwnerSupplierHistory);
+
+
+    // --- Logika untuk Halaman Lapak ---
+    const kirimLaporanBtn = document.getElementById("kirim-laporan-btn");
+    if (kirimLaporanBtn) kirimLaporanBtn.addEventListener("click", handleKirimLaporan);
+
+    const rekapInputs = document.querySelectorAll(".rekap-input");
+    rekapInputs.forEach(input => {
+        input.addEventListener("input", formatNumberInput);
+        input.addEventListener("keyup", updateGrandTotals);
+    });
+
+    // Panggil fungsi ini jika ada di halaman lapak
+    if (document.getElementById('rekap-footer')) {
+        manageFooterVisibility();
+    }
+    
+    // --- Logika untuk Halaman Supplier ---
+    const supplierHistoryFilterBtn = document.getElementById('supplier-history-filter-btn');
+    if (supplierHistoryFilterBtn) supplierHistoryFilterBtn.addEventListener('click', populateSupplierHistoryPage);
+
 });
